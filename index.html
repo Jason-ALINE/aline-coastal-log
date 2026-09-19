@@ -680,8 +680,9 @@ async function fetchJSON(url, tries=3){
 }
 
 async function fetchTideStations(){
+  // Only the tidepredictions list: the waterlevels list holds observation-only gauges
+  // (e.g. Baffin Bay 8776604, Port Mansfield 8778490) that return no predictions.
   const urls = [
-    "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=waterlevels&units=english",
     "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=tidepredictions&units=english"
   ];
   const results = await Promise.allSettled(urls.map(u=>fetchJSON(u)));
