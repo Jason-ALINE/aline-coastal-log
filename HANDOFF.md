@@ -112,6 +112,18 @@ result is a useful result.
 
 ---
 
+## Priority 4 — Improvements, after verification
+
+`BACKLOG.md` has a prioritised list. Do not start it until Priorities 1–3 are done
+and reported — the Tier 1 items change what every score means, and changing the
+model before the data plumbing is verified makes both impossible to debug.
+
+The headline item: **wind direction is computed and then ignored by the scoring.**
+A 12 mph onshore and a 12 mph offshore wind currently score identically, which on
+this coast is simply wrong.
+
+---
+
 ## Invariants — do not break these
 
 **Every naive timestamp goes through `parseCT()`.** NOAA (`time_zone=lst_ldt`) and
