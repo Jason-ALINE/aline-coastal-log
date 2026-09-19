@@ -111,3 +111,34 @@ Mansfield Channel Entrance at 9.5 mi. The detail view shows the distance, but
 Laguna Madre tides are heavily damped relative to the Gulf side, so the Baffin
 tide score is a weak proxy. Options: accept as is, cap the match distance and show
 "no tide data", or add a tide-less scoring path for that spot. I have not chosen.
+
+---
+
+## Addendum — Port Isabel focus and per-spot scoring (2026-09-19)
+
+Added at the user's request after the verification above. Two new spots (Port
+Isabel Shoreline, Queen Isabella Causeway west end), a "Port Isabel" filter chip,
+and optional per-spot `wind` exposure and tide `phase` fields. See the README
+section "Per-spot wind exposure and tide phase" for the rules.
+
+| Check | Result |
+| --- | --- |
+| 16 of 16 spots load, no app console errors | Pass (one extension-channel exception from Chrome, not the app) |
+| Untagged spots keep their earlier scores | Pass: Matagorda 80, Rollover 79, Galveston 77, Port O'Connor 77, Freeport 75, Bob Hall 75, Sabine 74, Mansfield 73, Rockport 72, Port Aransas 72, San Luis 71, Baffin 71 |
+| Tagged spots change and say why | Pass: Isla Blanca 73 to 76, Boca Chica 72 to 75; both show the wind and phase notes |
+| Phase fraction varies with real data | Pass: 0% to 100% across the 8-day forecast, complementary for incoming vs outgoing spots |
+| Unit checks for the new functions | 15 added to `tools/verify-astronomy.js`; 26/26 pass, also under Asia/Tokyo and UTC |
+| Astronomy checks | Still 11/11 |
+
+Limitations:
+- **Sheltered wind was not seen live.** The week's forecast is easterly, so every
+  live note was "exposed". The sheltered branch is covered by unit tests only.
+- **The wind adjustment rarely moves a score.** At the 7 to 11 mph seen this week,
+  a 1.25x factor stays inside the 5 to 15 mph bracket. It matters on 13+ mph days.
+- **The tags are my judgment**, listed in the README. The Isla Blanca and Boca Chica
+  changes (+3 each) come mostly from tide phase.
+- **Coordinates for the two new spots are NOAA station positions**, not atlas
+  hotspots. The atlas photos supplied so far contained no readable Port Isabel
+  hotspot table, so no atlas data was loaded.
+- **The causeway's tide is a reconstructed curve** (hilo-only station 8779739), and
+  has no phase preference, so phase does not apply there.

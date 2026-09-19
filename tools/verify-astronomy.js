@@ -91,5 +91,46 @@ for (let i = 0; i < 28; i++) {
 ok('transit missing on at most 1 day of 28', missT <= 1, 'missing ' + missT);
 ok('moonrise missing on at most 1 day of 28', missR <= 1, 'missing ' + missR);
 
+console.log('\nPer-spot scoring adjustments');
+console.log('----------------------------');
+const s0 = html.indexOf('function windScore14'), s1 = html.indexOf('function pressureScore10');
+const t0 = html.indexOf('// phaseFrac is null'), t1 = html.indexOf('function solunarScore25');
+if ([s0, s1, t0, t1].some(i => i < 0) || s1 <= s0 || t1 <= t0) {
+  console.error('Could not locate the scoring block in index.html; update the markers in this script.');
+  process.exit(2);
+}
+const sc = {};
+new Function('exports', 'norm360', html.slice(s0, s1) + html.slice(t0, t1) +
+  '\nObject.assign(exports,{windScore14,tideScore30,tidePhaseFraction,windExposure});')(sc, ctx.norm360);
+const { windScore14, tideScore30, tidePhaseFraction, windExposure } = sc;
+
+ok('no phase preference keeps the original tide formula', Math.abs(tideScore30(1.5, 1, null) - 19.5) < 1e-9,
+   String(tideScore30(1.5, 1, null)));
+ok('tide score with a preference never exceeds 30', tideScore30(5, 4, 1) === 30, String(tideScore30(5, 4, 1)));
+
+const HR = 3600000, T0 = Date.UTC(2026, 8, 19, 10);
+const curve = f => Array.from({ length: 8 }, (_, i) => ({ ms: T0 + i * HR, v: f(i) }));
+const win = [[T0, T0 + 7 * HR]];
+ok('rising tide is fully incoming', tidePhaseFraction(curve(i => i * 0.3), win, 'incoming') === 1);
+ok('rising tide is never outgoing', tidePhaseFraction(curve(i => i * 0.3), win, 'outgoing') === 0);
+ok('falling tide is fully outgoing', tidePhaseFraction(curve(i => 3 - i * 0.3), win, 'outgoing') === 1);
+ok('slack water earns nothing either way',
+   tidePhaseFraction(curve(() => 1), win, 'incoming') === 0 && tidePhaseFraction(curve(() => 1), win, 'outgoing') === 0);
+ok('too few segments in the windows gives null (no adjustment)',
+   tidePhaseFraction(curve(i => i * 0.3), [[T0, T0 + 0.5 * HR]], 'incoming') === null);
+ok('null windows are tolerated', tidePhaseFraction(curve(i => i * 0.3), [null, null], 'incoming') === null);
+
+const spot = { wind: { exposed: ['E', 'SE'], sheltered: ['W', 'NW'] } };
+const x = d => windExposure(spot, d);
+ok('wind from 270 is sheltered', x(270).kind === 'sheltered' && x(270).factor === 0.7);
+ok('wind from 100 is exposed', x(100).kind === 'exposed' && x(100).factor === 1.25);
+ok('wind from an unlisted direction is unchanged', x(180).kind === null && x(180).factor === 1);
+ok('compass wraps: 350 is N, 10 is N', x(350).dir === 'N' && x(10).dir === 'N');
+ok('spot without wind data is not adjusted', windExposure({}, 90) === null);
+ok('sheltering rescues a blustery day (18 mph W: 9 -> 14 pts)',
+   windScore14(18) === 9 && windScore14(18 * x(270).factor) === 14);
+ok('exposure costs a marginal day (13 mph E: 14 -> 9 pts)',
+   windScore14(13) === 14 && windScore14(13 * x(100).factor) === 9);
+
 console.log(fails ? '\n' + fails + ' check(s) FAILED\n' : '\nAll checks passed.\n');
 process.exit(fails ? 1 : 0);

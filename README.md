@@ -1,7 +1,8 @@
 # Coastal Log
 
-Fishing conditions for 14 spots on the Texas Gulf Coast, scored 0–100 from live
-tide, weather, marine, and lunar data.
+Fishing conditions for 16 spots on the Texas Gulf Coast, scored 0–100 from live
+tide, weather, marine, and lunar data. Four of them are around Port Isabel and
+have a **Port Isabel** filter chip.
 
 One self-contained HTML file. No build step, no dependencies, no server — open
 `index.html` in a browser and it fetches everything it needs.
@@ -38,6 +39,34 @@ still tops out at 100.
 | Pressure | 10 | Least-squares trend across all 24 hourly readings, in mb/day |
 | Rain chance | 6 | Mean probability through the day |
 | Sea state | 15 | 1–3 ft with a 7s+ swell period, surf/jetty/offshore only |
+
+### Per-spot wind exposure and tide phase
+
+Spots may carry two optional fields in `SPOTS`. A spot without them is scored
+exactly as in the table above.
+
+```js
+wind:  {exposed:["E","SE"], sheltered:["SW","W","NW"]},   // 8-point compass, wind FROM
+phase: "incoming"                                          // or "outgoing"
+```
+
+- **Wind:** the day's speed-weighted mean wind direction is rounded to the nearest
+  of eight compass points. Sheltered scales the effective speed by 0.7, exposed by
+  1.25, then the usual 14-point wind curve applies. It only changes the score when
+  that scaling crosses a bracket edge (5, 15, 20 or 25 mph), so on light days it does
+  nothing. The `FRONT` / `BLOWN OUT` flags still use the real wind.
+- **Phase:** the share of the dawn and dusk windows (sunrise/sunset ±90 min) in which
+  the tide moves the preferred way, at more than 0.08 ft/h, earns up to 6 of the 30
+  tide points. For these spots the dawn/dusk turn bonus drops from 12 to 6, so the
+  tide component still tops out at 30. Slack water earns nothing.
+- The detail view says whenever an adjustment applied.
+
+**The values are judgments, not measurements.** The four Port Isabel-area spots
+(Isla Blanca Jetties, Boca Chica, Port Isabel Shoreline, Queen Isabella Causeway)
+were tagged from coastline geometry and general practice (jetties on the make, bay
+shorelines on the fall), not from the atlas. Review them, and add the two fields to
+any other spot to opt it in. Port Isabel-area coordinates for the two new spots are
+NOAA station positions, to be replaced by real hotspot GPS.
 
 Two signals sit **outside** the score, because they're go/no-go calls rather than
 gradients: `FRONT` (pressure falling faster than 4 mb/day) and `BLOWN OUT`
