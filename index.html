@@ -1327,7 +1327,7 @@ function renderLedger(){
   ledger.innerHTML = rows.map((r,i)=>{
     const spot = r.spot;
     const fav = state.favorites.has(spot.id);
-    const typeLabel = `<span class="region">${esc(spot.region)} · ${spot.types.map(t=>typeIcon(t)).join("")} ${esc(spot.types.join("/"))}</span>`;
+    const typeLabel = `<span class="region">${esc(spot.area||spot.region)} ·${spot.types.map(t=>typeIcon(t)).join("")} ${esc(spot.types.join("/"))}</span>`;
     const starBtn = `<button type="button" class="star" data-star="${spot.id}" aria-pressed="${fav}" aria-label="${fav?"Remove":"Save"} ${esc(spot.name)}">${starSvg(fav)}</button>`;
 
     if(!r.model){
