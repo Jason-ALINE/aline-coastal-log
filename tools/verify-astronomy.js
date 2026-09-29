@@ -91,46 +91,54 @@ for (let i = 0; i < 28; i++) {
 ok('transit missing on at most 1 day of 28', missT <= 1, 'missing ' + missT);
 ok('moonrise missing on at most 1 day of 28', missR <= 1, 'missing ' + missR);
 
-console.log('\nPer-spot scoring adjustments');
-console.log('----------------------------');
-const s0 = html.indexOf('function windScore14'), s1 = html.indexOf('function pressureScore10');
-const t0 = html.indexOf('// phaseFrac is null'), t1 = html.indexOf('function solunarScore25');
-if ([s0, s1, t0, t1].some(i => i < 0) || s1 <= s0 || t1 <= t0) {
+console.log('\nWind exposure, bait flow and current');
+console.log('------------------------------------');
+const s0 = html.indexOf('// Open water upwind'), s1 = html.indexOf('function pressureScore10');
+if (s0 < 0 || s1 <= s0) {
   console.error('Could not locate the scoring block in index.html; update the markers in this script.');
   process.exit(2);
 }
 const sc = {};
-new Function('exports', 'norm360', html.slice(s0, s1) + html.slice(t0, t1) +
-  '\nObject.assign(exports,{windScore14,tideScore30,tidePhaseFraction,windExposure});')(sc, ctx.norm360);
-const { windScore14, tideScore30, tidePhaseFraction, windExposure } = sc;
+new Function('exports', 'norm360', 'mean', html.slice(s0, s1) +
+  '\nObject.assign(exports,{upwindFetch,exposureLabel,windExposureScore25,flowFraction,baitFlowScore25,windowRate,currentScore25,stationRefRate});')(
+  sc, ctx.norm360, a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
+const { upwindFetch, exposureLabel, windExposureScore25, flowFraction, baitFlowScore25, windowRate, currentScore25, stationRefRate } = sc;
 
-ok('no phase preference keeps the original tide formula', Math.abs(tideScore30(1.5, 1, null) - 19.5) < 1e-9,
-   String(tideScore30(1.5, 1, null)));
-ok('tide score with a preference never exceeds 30', tideScore30(5, 4, 1) === 30, String(tideScore30(5, 4, 1)));
+// Fetch: open to the east (10 mi), bank to the west (0).
+const F = [2, 5, 10, 10, 10, 10, 10, 5, 2, 0, 0, 0, 0, 0, 0, 1];
+ok('east wind reads the open side', upwindFetch(F, 90) === 10, String(upwindFetch(F, 90)));
+ok('west wind reads the bank', upwindFetch(F, 270) === 0, String(upwindFetch(F, 270)));
+ok('compass wraps at north', Math.abs(upwindFetch(F, 359.9) - upwindFetch(F, 0)) < 0.01);
+ok('no fetch data gives null', upwindFetch(undefined, 90) === null);
+ok('labels: 0.2 protected, 1 partly, 5 exposed',
+   exposureLabel(0.2) === 'protected' && exposureLabel(1) === 'partly exposed' && exposureLabel(5) === 'exposed');
+ok('20 mph off the bank is fishable (25)', windExposureScore25(20, 0) === 25);
+ok('20 mph across 10 mi of bay is poor (3)', windExposureScore25(20, 10) === 3);
+ok('12 mph exposed costs points (17), protected does not (25)',
+   windExposureScore25(12, 10) === 17 && windExposureScore25(12, 0.3) === 25);
+ok('over 25 mph is poor anywhere', windExposureScore25(30, 0) === 4);
+ok('dead calm gives up a little', windExposureScore25(2, 5) === 18);
 
 const HR = 3600000, T0 = Date.UTC(2026, 8, 19, 10);
 const curve = f => Array.from({ length: 8 }, (_, i) => ({ ms: T0 + i * HR, v: f(i) }));
 const win = [[T0, T0 + 7 * HR]];
-ok('rising tide is fully incoming', tidePhaseFraction(curve(i => i * 0.3), win, 'incoming') === 1);
-ok('rising tide is never outgoing', tidePhaseFraction(curve(i => i * 0.3), win, 'outgoing') === 0);
-ok('falling tide is fully outgoing', tidePhaseFraction(curve(i => 3 - i * 0.3), win, 'outgoing') === 1);
-ok('slack water earns nothing either way',
-   tidePhaseFraction(curve(() => 1), win, 'incoming') === 0 && tidePhaseFraction(curve(() => 1), win, 'outgoing') === 0);
-ok('too few segments in the windows gives null (no adjustment)',
-   tidePhaseFraction(curve(i => i * 0.3), [[T0, T0 + 0.5 * HR]], 'incoming') === null);
-ok('null windows are tolerated', tidePhaseFraction(curve(i => i * 0.3), [null, null], 'incoming') === null);
+ok('rising water is fully incoming', flowFraction(curve(i => i * 0.3), win, 'incoming') === 1);
+ok('rising water is never outgoing', flowFraction(curve(i => i * 0.3), win, 'outgoing') === 0);
+ok('falling water is fully outgoing', flowFraction(curve(i => 3 - i * 0.3), win, 'outgoing') === 1);
+ok('"either" counts falling water too', flowFraction(curve(i => 3 - i * 0.3), win, 'either') === 1);
+ok('slack water earns nothing, even for "either"', flowFraction(curve(() => 1), win, 'either') === 0);
+ok('too few segments gives null, scored neutral 12.5',
+   flowFraction(curve(i => i * 0.3), [[T0, T0 + 0.5 * HR]], 'incoming') === null && baitFlowScore25(null) === 12.5);
+ok('null windows are tolerated', flowFraction(curve(i => i * 0.3), [null, null], 'incoming') === null);
 
-const spot = { wind: { exposed: ['E', 'SE'], sheltered: ['W', 'NW'] } };
-const x = d => windExposure(spot, d);
-ok('wind from 270 is sheltered', x(270).kind === 'sheltered' && x(270).factor === 0.7);
-ok('wind from 100 is exposed', x(100).kind === 'exposed' && x(100).factor === 1.25);
-ok('wind from an unlisted direction is unchanged', x(180).kind === null && x(180).factor === 1);
-ok('compass wraps: 350 is N, 10 is N', x(350).dir === 'N' && x(10).dir === 'N');
-ok('spot without wind data is not adjusted', windExposure({}, 90) === null);
-ok('sheltering rescues a blustery day (18 mph W: 9 -> 14 pts)',
-   windScore14(18) === 9 && windScore14(18 * x(270).factor) === 14);
-ok('exposure costs a marginal day (13 mph E: 14 -> 9 pts)',
-   windScore14(13) === 14 && windScore14(13 * x(100).factor) === 9);
+ok('window rate of a 0.3 ft/h ramp is 0.3', Math.abs(windowRate(curve(i => i * 0.3), win) - 0.3) < 1e-9);
+ok('window rate ignores direction', Math.abs(windowRate(curve(i => 3 - i * 0.3), win) - 0.3) < 1e-9);
+ok('station reference is the median daily peak',
+   Math.abs(stationRefRate([curve(i => i * 0.1), curve(i => i * 0.2), curve(i => i * 0.3)]) - 0.2) < 1e-9);
+ok('tide at its usual peak and 0.3 ft/h earns full current', Math.abs(currentScore25(0.3, 0.3, 0, true).score - 25) < 1e-9);
+ok('small tide running at its own peak still earns 70%+', currentScore25(0.1, 0.1, 0, false).score >= 0.7 * 25);
+ok('slack tide, 15 mph at a bay spot: wind stands in at 60%', Math.abs(currentScore25(0, 0.2, 15, true).score - 15) < 1e-9);
+ok('wind does not stand in at a surf-only spot', currentScore25(0, 0.2, 15, false).score === 0);
 
 console.log(fails ? '\n' + fails + ' check(s) FAILED\n' : '\nAll checks passed.\n');
 process.exit(fails ? 1 : 0);

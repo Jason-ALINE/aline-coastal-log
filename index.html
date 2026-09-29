@@ -419,16 +419,17 @@
   <div class="modal">
     <button class="modal-close" id="modalClose" aria-label="Close">×</button>
     <h3 id="modalTitle">How the score works</h3>
-    <p>Each spot gets a 0–100 score built from five live-data components. Bay-only spots have no meaningful wave data, so their sea-state weight is redistributed proportionally across the rest.</p>
+    <p>Each spot gets a 0–100 score. Three questions carry 75 of the points: is the spot protected from today's wind, is the tide moving bait toward the fish, and how hard is the water moving. All three are judged in the 90 minutes either side of sunrise and sunset, when fish feed hardest.</p>
     <ul>
-      <li><b>Tide movement (30 pts)</b> — bigger daily tidal range and a high/low turn landing near dawn or dusk score higher. Moving water concentrates bait; a dead-flat tide scores lower.</li>
-      <li><b>Solunar (25 pts)</b> — overlap of the moon's major periods (overhead/underfoot ±1 hr) and minor periods (moonrise/moonset ±30 min) with dawn and dusk, plus a bonus near new and full moon, when spring tides run stronger.</li>
-      <li><b>Wind (14 pts)</b> — 5–15 mph is the sweet spot: enough to ripple the water without making it unfishable. Dead calm gives up a few points; over 20 mph gives up more.</li>
-      <li><b>Pressure (10 pts)</b> — measured as a least-squares trend across the whole day in millibars per 24 hours, so a single noisy reading can't swing it. Stable or slowly falling — the classic pre-front bite — scores highest.</li>
-      <li><b>Rain chance (6 pts)</b> — lower average probability through the day scores higher.</li>
-      <li><b>Sea state (15 pts, surf/jetty/offshore only)</b> — 1–3 ft with a clean 7-second-plus swell period beats glassy-flat or sloppy and rough.</li>
+      <li><b>Wind exposure (25 pts)</b> — wind speed combined with how much open water lies upwind, measured from shoreline maps in 16 directions. Strong wind off the bank: fishable, full points. Strong wind across miles of open bay: choppy and muddy, low points.</li>
+      <li><b>Bait flow (25 pts)</b> — each spot has a role. Passes, jetties, flats and surf want rising water; cove mouths, drains and dropoffs want falling water; cuts and structure want any strong flow. Points for the share of the windows the water moves the right way.</li>
+      <li><b>Current (25 pts)</b> — how fast the water level is changing, compared with that station's usual peak. At bay spots a steady wind can stand in for a weak tide.</li>
+      <li><b>Solunar (10 pts)</b> — moon major and minor periods overlapping dawn or dusk.</li>
+      <li><b>Pressure (6 pts)</b> — stable or slowly falling scores highest.</li>
+      <li><b>Rain chance (4 pts)</b> — lower is better.</li>
+      <li><b>Sea state (5 pts, surf/jetty/offshore only)</b> — 1–3 ft with a clean swell. Bay spots skip it and the rest scale up.</li>
     </ul>
-    <p>Some spots also carry local knowledge. Where a spot lists the wind directions it is sheltered from or exposed to, the day's wind is adjusted before scoring. Where it has a preferred tide phase (incoming or outgoing), up to 6 of its 30 tide points reward moving water in that direction at dawn and dusk, and the turn bonus is 6 instead of 12. Spots without this information are scored exactly as described above, and the breakdown says when an adjustment was applied.</p>
+    <p>Open a spot to see, in plain words, why it scored what it did on wind, bait flow and current.</p>
     <p>Two flags sit outside the score because they are go/no-go calls rather than gradients: <b>FRONT</b> marks a pressure fall steeper than 4 mb/day, and <b>BLOWN OUT</b> marks a day averaging over 22 mph.</p>
     <p>This is a planning aid built from real NOAA, Open-Meteo, and astronomical data — not a substitute for checking marine forecasts and small craft advisories before you go out.</p>
   </div>
@@ -460,17 +461,13 @@ const SPOTS = [
   {id:"bobhall", name:"Bob Hall Pier, Padre Island", region:"Middle", lat:27.5836, lon:-97.2156, types:["surf"]},
   {id:"baffin", name:"Baffin Bay", region:"Middle", lat:27.2967, lon:-97.4400, types:["bay"]},
   {id:"mansfield", name:"Port Mansfield", region:"Lower", lat:26.5589, lon:-97.4308, types:["bay","offshore"]},
-  {id:"spi", name:"South Padre Island / Isla Blanca Jetties", region:"Lower", area:"Port Isabel", lat:26.0606, lon:-97.1581, types:["surf","offshore"],
-    wind:{exposed:["NE","E","SE"], sheltered:["SW","W","NW"]}, phase:"incoming"},
-  {id:"bocachica", name:"Boca Chica Beach", region:"Lower", area:"Port Isabel", lat:25.9989, lon:-97.1561, types:["surf","bay"],
-    wind:{exposed:["NE","E","SE"], sheltered:["SW","W","NW"]}, phase:"incoming"},
+  {id:"spi", name:"South Padre Island / Isla Blanca Jetties", region:"Lower", area:"Port Isabel", lat:26.0606, lon:-97.1581, types:["surf","offshore"]},
+  {id:"bocachica", name:"Boca Chica Beach", region:"Lower", area:"Port Isabel", lat:25.9989, lon:-97.1561, types:["surf","bay"]},
   // Port Isabel area, GPS from the Texas Lakes & Bays Fishing Atlas 2025-26.
   // portisabel: High School Shoreline, p.223 (N 26 04.830, W 97 14.870).
   // causeway: Pirates Landing Pier, p.222 facilities table (N 26 04.734, W 97 12.402).
-  {id:"portisabel", name:"High School Shoreline, Port Isabel / Laguna Madre", region:"Lower", area:"Port Isabel", lat:dmToDeg("26 04.830"), lon:-dmToDeg("97 14.870"), types:["bay"],
-    wind:{exposed:["E","SE"], sheltered:["SW","W","NW"]}, phase:"outgoing"},
-  {id:"causeway", name:"Queen Isabella Causeway (west end) / Pirates Landing Pier", region:"Lower", area:"Port Isabel", lat:dmToDeg("26 04.734"), lon:-dmToDeg("97 12.402"), types:["bay"],
-    wind:{exposed:["E","SE"], sheltered:[]}},
+  {id:"portisabel", name:"High School Shoreline, Port Isabel / Laguna Madre", region:"Lower", area:"Port Isabel", lat:dmToDeg("26 04.830"), lon:-dmToDeg("97 14.870"), types:["bay"]},
+  {id:"causeway", name:"Queen Isabella Causeway (west end) / Pirates Landing Pier", region:"Lower", area:"Port Isabel", lat:dmToDeg("26 04.734"), lon:-dmToDeg("97 12.402"), types:["bay"]},
 ];
 
 /* Port Isabel-area hotspots from the Texas Lakes & Bays Fishing Atlas 2025-26, p.223 tables
@@ -582,6 +579,95 @@ ATLAS_PI.forEach(([id,name,types,rows])=>{
     lat:dmToDeg(rows[0][1]), lon:-dmToDeg(rows[0][2]), types, atlas:atlasRows(rows)});
 });
 SPOTS.forEach(s=>{ if(ATLAS_PI_EXTRA[s.id]) s.atlas = atlasRows(ATLAS_PI_EXTRA[s.id]); });
+
+/* Bait flow: which way the water should move for bait to reach the fish at each kind of spot. */
+const ROLES = {
+  pass:     {want:"incoming", label:"Gulf pass / jetty",      why:"a rising tide carries bait in from the Gulf"},
+  surf:     {want:"incoming", label:"Surf",                   why:"a rising tide pushes bait into the guts along the beach"},
+  flat:     {want:"incoming", label:"Flat / shoreline",       why:"rising water pushes bait up onto the flats and shoreline"},
+  mouth:    {want:"outgoing", label:"Cove / drain mouth",     why:"a falling tide flushes bait out of the cove or marsh past the mouth"},
+  dropoff:  {want:"outgoing", label:"Dropoff / channel edge", why:"a falling tide pulls bait off the flats onto the edge"},
+  cut:      {want:"either",   label:"Inside cut / channel",   why:"bait funnels through on either tide, so any strong flow counts"},
+  structure:{want:"either",   label:"Structure",              why:"pilings, spoils and rocks hold fish on either tide while the water moves"},
+};
+// Drafted from spot names and atlas notes; review against local knowledge.
+const SPOT_ROLES = {
+  sabine:"pass", rollover:"pass", galveston:"pass", sanluis:"pass", freeport:"pass", matagorda:"pass",
+  poc:"pass", rockport:"flat", portaransas:"pass", bobhall:"surf", baffin:"structure", mansfield:"structure",
+  spi:"pass", bocachica:"surf", portisabel:"dropoff", causeway:"structure",
+  "pi-airportcove":"mouth", "pi-drumboats":"flat", "pi-colorchange":"dropoff", "pi-baysideisland":"flat",
+  "pi-marker97":"structure", "pi-longbar":"flat", "pi-longbaricw":"dropoff", "pi-shrimpfarm":"flat",
+  "pi-hollyislands":"structure", "pi-hollybeach":"flat", "pi-bowiepark":"flat", "pi-baysidefingers":"flat",
+  "pi-texaco":"dropoff", "pi-lvcove":"mouth", "pi-lomagrulla":"flat", "pi-parallelbar":"flat",
+  "pi-westspoil":"structure", "pi-sh100fm510":"mouth", "pi-lvhwy100":"flat", "pi-hwy100drop":"dropoff",
+  "pi-bridgepoint":"dropoff", "pi-icwedge":"dropoff", "pi-newcauseway":"structure", "pi-oldcauseway":"structure",
+  "pi-coastguard":"pass", "pi-northjetties":"pass", "pi-railbed":"structure", "pi-turningbasin":"pass",
+  "pi-mexequita":"flat", "pi-delmar":"surf", "pi-southbaypass":"cut", "pi-they":"flat",
+  "pi-southbaymouth":"cut", "pi-southbaychannels":"cut", "pi-southbaymangroves":"flat", "pi-southbay":"flat",
+  "pi-southbayse":"flat", "pi-tabletop":"flat", "pi-westsouthbay":"flat",
+};
+SPOTS.forEach(s=>{ s.role = SPOT_ROLES[s.id] || "structure"; });
+
+/* FETCH:BEGIN — generated by tools/compute-fetch.js from OpenStreetMap shorelines; do not edit by hand.
+   Open water (miles, capped at 10) in 16 directions starting at N, clockwise. */
+const FETCH = {
+  "sabine":[1.6,3.3,7.3,10,10,10,10,10,10,10,10,10,10,5,2.5,1.8],
+  "rollover":[2,0.5,0.1,1.3,1,0.6,0.4,0.3,0.2,0.2,0.1,0.1,0.1,0.1,0.4,2],
+  "galveston":[4.6,7.4,10,10,10,10,10,10,10,10,10,1.6,5,4.4,3.1,3],
+  "sanluis":[0.4,0.3,0.3,0.3,10,10,10,10,10,0.4,0.4,0.4,1,1.4,3.8,5.2],
+  "freeport":[0,0,3.2,10,10,10,10,10,10,10,0.1,0,0,0,0,0],
+  "matagorda":[1.8,5.2,4.9,10,9.9,10,10,10,10,7.9,8,8.3,3.1,2,1.6,1.6],
+  "poc":[10,10,10,10,3,3.7,3.4,3.7,0.6,0.4,0.2,0.2,0.2,0.1,0.4,9.7],
+  "rockport":[0.2,0.3,1,7.6,5,4.5,5.5,5.6,10,3.4,0.5,0.2,0.2,0.1,0.2,0.2],
+  "portaransas":[0.3,3.1,9.9,9.9,9.9,10,10,10,9.9,9.9,0,0,0,0,0,0.6],
+  "bobhall":[0.5,3.8,10,10,10,10,10,10,10,10,0.5,0.3,0.2,0.2,0.2,0.3],
+  "baffin":[1.1,1.3,7.6,5.2,2.2,5.1,5.3,2.5,2.3,2.8,5,10,2.7,1.8,1.4,1.2],
+  "mansfield":null,
+  "spi":[0.6,0.5,10,0.1,0,0,0,0,0,0,0,0,0.1,0.1,10,0.6],
+  "bocachica":[0.3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  "portisabel":[10,3.4,6.1,5.1,4.9,0.2,0.1,0,0,0,0,0,0.1,2.2,3.9,4.8],
+  "causeway":[10,4.7,3,2.7,2.3,0.3,0.2,0,0,0,0,0,0.1,6,6.2,3.8],
+  "pi-airportcove":[0.3,10,3.1,7.4,7.4,8.6,9.7,6.5,0.5,0.4,0.4,0.3,0.2,0.2,0.2,0.2],
+  "pi-drumboats":[0.4,0.2,0.1,0.1,0.1,0.2,0.3,0.8,9.1,7.5,4.1,6.2,7,5.5,9,10],
+  "pi-colorchange":[7.6,3.3,2.2,1.9,2,2.1,3,7,6.6,3,6.8,5.7,5.5,6.5,7.7,10],
+  "pi-baysideisland":[3.8,1.3,0.8,0.5,0.7,0.5,0.9,2.6,7.1,5.5,6.6,2.9,6.6,7.2,9.8,10],
+  "pi-marker97":[10,7.4,4.8,4.1,3.9,4.6,6.5,5.6,5.2,4.9,3.6,3.3,3.3,3.8,4.8,10],
+  "pi-longbar":[10,7.1,4.5,3.9,3.5,4.5,6.1,0.8,4.8,4.7,4.4,3.3,3.7,4.3,5,4.3],
+  "pi-longbaricw":[10,6.7,4.4,3.7,3.7,4.2,0.2,4.5,4.2,4.2,4.2,3.2,3.7,4.3,5.2,4.7],
+  "pi-shrimpfarm":[0.3,10,8.9,7.5,7.3,8.6,6.6,0.6,0.3,0.1,0.1,0.1,0.1,0.1,0.2,0.2],
+  "pi-hollyislands":[5.4,10,7.1,6,5.6,2.9,8.7,5.1,4.1,1.8,0.4,1.5,1.6,1.5,2.5,3.7],
+  "pi-hollybeach":[8.5,10,8.3,0.4,6.9,8,6,4.2,0.7,0.5,0.4,0.4,0.5,0.7,0.9,2.4],
+  "pi-bowiepark":[0.8,0.4,0.3,0.3,0.2,0.2,0.4,1.4,5.7,4.3,5.6,7,3.2,7.8,10,10],
+  "pi-baysidefingers":[0.1,0,0,0,0.1,0,0,0.1,4.9,4,4.9,6.9,6.9,8.4,8.2,0.2],
+  "pi-texaco":[7.8,10,7.8,6.5,3.2,7.3,4.4,3.1,2.3,1.7,0.5,0.4,0.4,0.5,1.4,3.8],
+  "pi-lvcove":[0.4,0.7,0.4,0.4,0.3,8.9,3.8,1.5,0.5,0.4,0.4,0.4,0.9,0.9,0.4,0.4],
+  "pi-lomagrulla":[9.3,10,8.3,3.2,6.8,7.8,3.9,2.5,1.7,1.2,0.1,0.1,0,0,0.1,0.2],
+  "pi-parallelbar":[10,5.5,3.5,3,2.9,3.5,4.6,2.4,2.1,2.3,2.8,3.7,4.8,5,6.9,0.2],
+  "pi-westspoil":[10,5.7,3.4,2.9,2.9,3.2,3.9,1.5,1.4,1.5,2,2.9,4.4,4.6,7.4,2.6],
+  "pi-sh100fm510":[10,10,8.4,6.9,7,3.2,1,0.4,0.3,0.2,0.2,0.2,0.3,0.4,1.4,1.8],
+  "pi-lvhwy100":[3.4,10,4,6.9,6.9,2.3,0.3,0.1,0.1,0.1,0.1,0.1,0.1,0.2,0.7,2.1],
+  "pi-hwy100drop":[3.5,10,4.1,6.9,6.9,2.2,0.4,0.1,0.1,0.1,0.1,0.1,0.1,0.3,0.9,2.1],
+  "pi-bridgepoint":[0.7,0.3,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.2,2.6,2.1,6.5,8.2,10,10],
+  "pi-icwedge":[10,4.3,2.8,2.4,2.1,2.8,2.7,0.7,0.6,0.5,0.6,1.2,3.8,7.1,8.5,10],
+  "pi-newcauseway":[1.9,0.7,0.4,0.2,0.1,0.2,0.4,0.5,1.8,2.6,2.2,1.8,5.8,7.6,10,10],
+  "pi-oldcauseway":[7.3,2.2,1.1,0.9,1,1.8,1.2,1.2,4,2,1.3,0.9,0.8,7.7,10,10],
+  "pi-coastguard":[0.3,0.2,0,0,0.1,0.2,0.4,0.6,0.7,1.1,2.8,2.1,1.7,9.3,5.2,0.4],
+  "pi-northjetties":[10,10,10,10,10,10,10,10,0.3,0.4,0.8,0.2,0.2,0.3,0.4,1.5],
+  "pi-railbed":[0.6,0.4,0.6,0.7,0,0,0,0,0,0,0,2.1,2.1,8.8,10,10],
+  "pi-turningbasin":[0.5,0.4,10,10,0.2,0.1,0.1,0.1,0.2,0.2,0.2,0.2,0.2,9.3,6,0.5],
+  "pi-mexequita":[0.7,3.2,1.8,1.8,1.3,0.9,0.7,3.2,0.8,0.8,0.7,0.5,0.5,0.6,0.6,0.6],
+  "pi-delmar":[10,10,10,10,10,10,10,10,5,0.5,0.3,0.2,0.2,0.2,0.2,0.3],
+  "pi-southbaypass":[9.1,0.3,0.2,0.1,0.1,0.1,0.2,2.2,2.2,2.7,0.1,0.1,0.1,0.2,1.2,1.6],
+  "pi-they":[0.1,0.1,0.1,0.1,0.3,0.6,0.1,0.1,0.6,0.9,0.2,0.1,0.1,0.2,0.3,1.1],
+  "pi-southbaymouth":[9.7,0.4,0.3,0.2,0.4,1.1,1.2,2.1,1.8,2.3,2.1,0.5,0.2,0.1,0.1,0.1],
+  "pi-southbaychannels":[9.6,0.3,0.3,1,0.9,1,1.1,1.9,1.7,2.1,2.1,0.7,0.5,0.3,0.3,0.3],
+  "pi-southbaymangroves":[0.5,0.5,0.5,0.4,0.4,0.4,0.6,0.7,2,1.8,2.4,1.9,1.1,0.7,0.3,0.3],
+  "pi-southbay":[1.1,1.3,0.8,0.4,0.3,0.4,0.8,1,1,0.9,1.5,1.9,1.8,1.2,1.2,1.3],
+  "pi-southbayse":[0,0,0,0,0,0.3,0.3,0.4,0.4,1,1,2.1,2.4,1.7,0,0],
+  "pi-tabletop":[1.6,1.8,1.5,0.9,1.2,1,1,0.6,0.5,0.5,1,1.2,1.6,1.2,1,1.2],
+  "pi-westsouthbay":[10,2.2,1.3,1.1,0.9,0.8,0.4,0.2,0.2,0.1,0.2,0.2,1.4,1.5,1.3,1.4],
+};
+/* FETCH:END */
 
 /* ============================== GEO / DATE UTILS ============================== */
 function haversineMiles(lat1,lon1,lat2,lon2){
@@ -909,13 +995,78 @@ const MPH_PER_KMH = 0.621371;
 const FT_PER_M = 3.28084;
 const cToF = c => c*9/5+32;
 
-function windScore14(avgMph){
-  if(avgMph<2) return 7;
-  if(avgMph<=5) return 11;
-  if(avgMph<=15) return 14;
-  if(avgMph<=20) return 9;
-  if(avgMph<=25) return 4;
-  return 1;
+// Open water upwind, in miles. The day's wind wanders, so the reading at the wind direction
+// is blended with the two neighbouring 22.5° directions.
+function upwindFetch(fetch, fromDeg){
+  if(!fetch) return null;
+  const at = deg => {
+    const x = norm360(deg)/22.5, i = Math.floor(x), f = x - i;
+    return fetch[i%16]*(1-f) + fetch[(i+1)%16]*f;
+  };
+  return 0.5*at(fromDeg) + 0.25*at(fromDeg-22.5) + 0.25*at(fromDeg+22.5);
+}
+function exposureLabel(fetchMi){
+  if(fetchMi==null) return "exposure unknown";
+  if(fetchMi<0.5) return "protected";
+  if(fetchMi<3) return "partly exposed";
+  return "exposed";
+}
+// Chop grows with wind speed and with the open water it blows across. A strong wind off the
+// bank leaves the water fishable; the same wind across miles of bay muddies it.
+function windExposureScore25(mph, fetchMi){
+  if(mph>25) return 4;
+  if(mph<4) return 18;                        // slick calm: fishable, but nothing moving the surface
+  const chop = mph*Math.sqrt(Math.min(10, fetchMi==null ? 3 : fetchMi));
+  if(chop<=30) return 25;
+  if(chop<=45) return 17;
+  if(chop<=60) return 9;
+  return 3;
+}
+// Share of the dawn and dusk windows (curve segments) where the water moves the wanted way.
+// "either" counts any movement. Slack water counts as zero. Null when too few segments to judge.
+function flowFraction(curve, windows, want){
+  let good=0, n=0;
+  for(let i=0;i<curve.length-1;i++){
+    const a=curve[i], b=curve[i+1];
+    const mid=(a.ms+b.ms)/2;
+    if(!windows.some(w=>w && mid>=w[0] && mid<=w[1])) continue;
+    n++;
+    const rate=(b.v-a.v)/((b.ms-a.ms)/3600000);   // ft per hour
+    if(Math.abs(rate)<0.08) continue;
+    if(want==="either" || (want==="incoming" ? rate>0 : rate<0)) good++;
+  }
+  return n>=2 ? good/n : null;
+}
+function baitFlowScore25(frac){ return frac==null ? 12.5 : 25*frac; }
+// Mean speed of the water level (ft/h) inside the windows. Null when too few segments.
+function windowRate(curve, windows){
+  const rates=[];
+  for(let i=0;i<curve.length-1;i++){
+    const a=curve[i], b=curve[i+1];
+    const mid=(a.ms+b.ms)/2;
+    if(!windows.some(w=>w && mid>=w[0] && mid<=w[1])) continue;
+    rates.push(Math.abs((b.v-a.v)/((b.ms-a.ms)/3600000)));
+  }
+  return rates.length>=2 ? mean(rates) : null;
+}
+// Current, scored mostly against the station's own usual peak speed (a 1 ft Laguna Madre tide
+// running hard is a good day there) and partly against an absolute 0.3 ft/h. In a bay a steady
+// wind moves water too, so for bay spots it can stand in for a weak tide, up to 60%.
+function currentScore25(rate, refRate, windMph, isBay){
+  const rel = rate!=null && refRate>0 ? Math.min(1, rate/refRate) : 0;
+  const abs = rate!=null ? Math.min(1, rate/0.3) : 0;
+  const tideMove = 0.7*rel + 0.3*abs;
+  const windMove = isBay ? 0.6*Math.max(0, Math.min(1, (windMph-5)/10)) : 0;
+  return {score: 25*Math.max(tideMove, windMove), tideMove, windMove};
+}
+// A station's usual peak: the median over the forecast days of each day's fastest rate.
+function stationRefRate(dayCurves){
+  const peaks = dayCurves.map(c=>{
+    let mx=0;
+    for(let i=0;i<c.length-1;i++) mx = Math.max(mx, Math.abs((c[i+1].v-c[i].v)/((c[i+1].ms-c[i].ms)/3600000)));
+    return mx;
+  }).filter(v=>v>0).sort((x,y)=>x-y);
+  return peaks.length ? peaks[Math.floor(peaks.length/2)] : null;
 }
 function pressureScore10(mbPerDay){
   const t = mbPerDay;
@@ -930,37 +1081,6 @@ function precipScore6(avgPct){
   if(avgPct<=35) return 4;
   if(avgPct<=60) return 2;
   return 0;
-}
-// phaseFrac is null for spots with no tide-phase preference: those keep the original 18 + 12 split.
-// With a preference, the turn bonus halves to 6 and the other 6 points reward moving the right way.
-function tideScore30(rangeFt, extremaNearDawnDusk, phaseFrac){
-  const range = Math.min(1, rangeFt/2.0)*18;
-  if(phaseFrac==null) return range + Math.min(12, extremaNearDawnDusk*6);
-  return range + Math.min(6, extremaNearDawnDusk*3) + 6*phaseFrac;
-}
-// Share of the dawn and dusk windows (curve segments) where the tide moves the preferred way.
-// Slack water counts as zero. Returns null when the windows hold too few segments to judge.
-function tidePhaseFraction(curve, windows, want){
-  let good=0, n=0;
-  for(let i=0;i<curve.length-1;i++){
-    const a=curve[i], b=curve[i+1];
-    const mid=(a.ms+b.ms)/2;
-    if(!windows.some(w=>w && mid>=w[0] && mid<=w[1])) continue;
-    n++;
-    const rate=(b.v-a.v)/((b.ms-a.ms)/3600000);   // ft per hour
-    if(Math.abs(rate)<0.08) continue;
-    if(want==="incoming" ? rate>0 : rate<0) good++;
-  }
-  return n>=2 ? good/n : null;
-}
-const COMPASS8 = ["N","NE","E","SE","S","SW","W","NW"];
-// Wind from a direction the spot is sheltered from feels lighter, from one it is exposed to, heavier.
-function windExposure(spot, dirDeg){
-  if(!spot.wind) return null;
-  const dir = COMPASS8[Math.round(norm360(dirDeg)/45)%8];
-  if((spot.wind.sheltered||[]).includes(dir)) return {dir, kind:"sheltered", factor:0.7};
-  if((spot.wind.exposed||[]).includes(dir))   return {dir, kind:"exposed",   factor:1.25};
-  return {dir, kind:null, factor:1};
 }
 function solunarScore25(majorHits, minorHits, illum){
   let s = Math.min(16, majorHits*8) + Math.min(8, minorHits*4);
@@ -1010,6 +1130,23 @@ function curveFromHilo(hiloPts, dayStartMs){
   return out;
 }
 
+function tideDayCurve(raw, ds){
+  const dayStartMs = ctMidnight(ds).getTime();
+  const dayEndMs = dayStartMs + 24*3600000;
+  const allHilo = raw.tide.hilo.map(e=>({ms:+parseCT(e.t), v:e.v, type:e.type}))
+                               .filter(e=>Number.isFinite(e.ms))
+                               .sort((a,b)=>a.ms-b.ms);
+  const dayHilo = allHilo.filter(e=>e.ms>=dayStartMs && e.ms<dayEndMs);
+  let dayCurve = raw.tide.hourly.map(h=>({ms:+parseCT(h.t), v:h.v}))
+                                .filter(h=>Number.isFinite(h.ms) && h.ms>=dayStartMs && h.ms<=dayEndMs);
+  let curveSynthesized = false;
+  if(dayCurve.length < 12){
+    dayCurve = curveFromHilo(allHilo, dayStartMs);
+    curveSynthesized = dayCurve.length > 0;
+  }
+  return {dayHilo, dayCurve, curveSynthesized};
+}
+
 function computeDayModel(spot, ds, raw){
   const wx = raw.weather;
   if(!wx || !wx.hourly || !wx.daily) return null;
@@ -1024,17 +1161,7 @@ function computeDayModel(spot, ds, raw){
   const sunset  = parseCT(wx.daily.sunset[dailyIdx]);
 
   /* ---- Tide ---- */
-  const allHilo = raw.tide.hilo.map(e=>({ms:+parseCT(e.t), v:e.v, type:e.type}))
-                               .filter(e=>Number.isFinite(e.ms))
-                               .sort((a,b)=>a.ms-b.ms);
-  const dayHilo = allHilo.filter(e=>e.ms>=dayStartMs && e.ms<dayEndMs);
-  let dayCurve = raw.tide.hourly.map(h=>({ms:+parseCT(h.t), v:h.v}))
-                                .filter(h=>Number.isFinite(h.ms) && h.ms>=dayStartMs && h.ms<=dayEndMs);
-  let curveSynthesized = false;
-  if(dayCurve.length < 12){
-    dayCurve = curveFromHilo(allHilo, dayStartMs);
-    curveSynthesized = dayCurve.length > 0;
-  }
+  const {dayHilo, dayCurve, curveSynthesized} = tideDayCurve(raw, ds);
   if(!dayCurve.length && !dayHilo.length) return null;
 
   const heights = dayCurve.length>=2 ? dayCurve.map(h=>h.v) : dayHilo.map(h=>h.v);
@@ -1127,30 +1254,26 @@ function computeDayModel(spot, ds, raw){
 
   /* ---- Score ---- */
   const hasMarine = waveFt!=null && (spot.types.includes("surf")||spot.types.includes("offshore"));
-  const phaseFrac = spot.phase
-    ? tidePhaseFraction(dayCurve, [dawnWin, duskWin], spot.phase)
-    : null;
-  const tideS = tideScore30(range, extremaNear, phaseFrac);
-  const solS = solunarScore25(majorHits, minorHits, moon.illum);
-  const expo = (winds.length && windDirAvg!=null) ? windExposure(spot, windDirAvg) : null;
-  const windS = windScore14(expo ? windAvg*expo.factor : windAvg);
-  const pressS = pressureScore10(pressureTrend);
-  const precipS = precipScore6(precipAvg);
-  const marineS = hasMarine ? marineScore15(waveFt, periodS) : null;
+  const windows = [dawnWin, duskWin];
+  const role = ROLES[spot.role];
+  const fetchUp = winds.length ? upwindFetch(FETCH[spot.id], windDirAvg) : null;
+  const windS = windExposureScore25(windAvg, fetchUp);
+  const flowFrac = flowFraction(dayCurve, windows, role.want);
+  const flowS = baitFlowScore25(flowFrac);
+  const rate = windowRate(dayCurve, windows);
+  const cur = currentScore25(rate, raw.refRate, windAvg, spot.types.includes("bay"));
+  const solS = solunarScore25(majorHits, minorHits, moon.illum)*0.4;
+  const pressS = pressureScore10(pressureTrend)*0.6;
+  const precipS = precipScore6(precipAvg)*4/6;
+  const marineS = hasMarine ? marineScore15(waveFt, periodS)/3 : null;
 
-  let total, breakdown;
-  if(marineS!=null){
-    total = tideS+solS+windS+pressS+precipS+marineS;
-    breakdown = [["Tide movement",tideS,30],["Solunar",solS,25],["Wind",windS,14],
-                 ["Pressure",pressS,10],["Rain chance",precipS,6],["Sea state",marineS,15]];
-  }else{
-    const scale = 100/85;
-    total = (tideS+solS+windS+pressS+precipS)*scale;
-    breakdown = [["Tide movement",tideS*scale,30*scale],["Solunar",solS*scale,25*scale],
-                 ["Wind",windS*scale,14*scale],["Pressure",pressS*scale,10*scale],
-                 ["Rain chance",precipS*scale,6*scale]];
-  }
-  total = Math.round(Math.max(0,Math.min(100,total)));
+  // 75 of 100 points ride on wind exposure, bait flow and current.
+  const parts = [["Wind exposure",windS,25],["Bait flow",flowS,25],["Current",cur.score,25],
+                 ["Solunar",solS,10],["Pressure",pressS,6],["Rain chance",precipS,4]];
+  if(marineS!=null) parts.push(["Sea state",marineS,5]);
+  const scale = marineS!=null ? 1 : 100/95;       // bay spots: no sea state, the rest scale up
+  const breakdown = parts.map(([l,v,mx])=>[l,v*scale,mx*scale]);
+  const total = Math.round(Math.max(0,Math.min(100, breakdown.reduce((t,[,v])=>t+v,0))));
 
   /* ---- Best window ---- */
   const candidates = [];
@@ -1181,9 +1304,10 @@ function computeDayModel(spot, ds, raw){
 
   return {
     ds, total, breakdown, hasMarine, flags, dayStartMs, curveSynthesized,
-    adjust:{
-      wind: expo && expo.kind ? {...expo, effMph: windAvg*expo.factor} : null,
-      phase: phaseFrac!=null ? {want: spot.phase, frac: phaseFrac} : null
+    why:{
+      exposure:{fetchUp, label: exposureLabel(fetchUp)},
+      flow:{role, frac: flowFrac},
+      current:{rate, refRate: raw.refRate, tideMove: cur.tideMove, windMove: cur.windMove}
     },
     tide:{range, dayCurve, dayHilo, extremaNear},
     weather:{windAvg, windDirAvg, gustMax, pressureTrend, precipAvg, tempHi, tempLo, cloudAvg},
@@ -1365,13 +1489,14 @@ function tideCurveSvg(m, w=600, h=170){
 
 /* ============================== SCORE COPY ============================== */
 const SCORE_INFO = {
-  "Tide movement":"Up to 18 points come from the day's total tide range — more rise and fall means more current, which concentrates bait and gets fish moving. The remaining 12 are a bonus for a high or low turn landing within about 90 minutes of sunrise or sunset, when feeding tends to peak.",
-  "Solunar":"Based on the moon's major periods (overhead or underfoot, ±1 hr — up to 16 pts) and minor periods (moonrise and moonset, ±30 min — up to 8 pts) lining up with dawn or dusk. A few extra points near new and full moon, when spring tides run stronger.",
-  "Wind":"5–15 mph is the sweet spot: enough to ripple the water without making it hard to fish or hard to stand. Dead calm gives up a few points, over 20 mph gives up more, over 25 mph the most.",
+  "Wind exposure":"Wind speed combined with how much open water lies upwind of this spot, measured from OpenStreetMap shorelines in 16 directions. A strong wind blowing off the bank or across a short stretch of water leaves the spot fishable, so it scores full points. The same wind across miles of open bay stirs up chop and mud, and scores low. Dead calm gives up a few points; over 25 mph scores near zero anywhere.",
+  "Bait flow":"Whether the tide moves the way that brings bait to the fish at this kind of spot, during the 90 minutes either side of sunrise and sunset. Passes, jetties, flats and surf want rising water (bait carried in or pushed up). Cove mouths, drains and dropoffs want falling water (bait flushed out to the fish). Cuts and structure count any strong flow. Slack water scores nothing.",
+  "Current":"How fast the water level changes in the dawn and dusk windows. Mostly measured against this station's usual peak speed, so a small Laguna Madre tide running hard still scores well, and partly against an absolute 0.3 ft per hour. At bay spots a steady 10–15 mph wind also moves water, and can stand in for a weak tide.",
+  "Solunar":"Based on the moon's major periods (overhead or underfoot, ±1 hr) and minor periods (moonrise and moonset, ±30 min) lining up with dawn or dusk, with a little extra near new and full moon.",
   "Pressure":"A least-squares trend fitted across all 24 hourly readings and reported in millibars per day, so one noisy hour can't swing it. Stable or slowly falling — the classic pre-front bite — scores highest; sharp moves either way score lower.",
-  "Rain chance":"Straightforward: a lower average chance of rain through the day scores higher.",
-  "Sea state":"Wave height around 1–3 ft with a clean swell period of 7 seconds or more scores best at surf, jetty, and offshore spots. Glassy-flat and sloppy-rough both score lower. Bay-only spots skip this component and the other five scale up to fill 100.",
-  "Total":"The sum of everything above. For bay-only spots with no sea-state component, the other five are scaled up proportionally so the total still tops out at 100."
+  "Rain chance":"A lower average chance of rain through the day scores higher.",
+  "Sea state":"Wave height around 1–3 ft with a clean swell period of 7 seconds or more scores best at surf, jetty and offshore spots. Bay-only spots skip this part and the others scale up to fill 100.",
+  "Total":"The sum of everything above. Wind exposure, bait flow and current carry 75 of the 100 points. For bay-only spots with no sea-state part, the others are scaled up so the total still tops out at 100."
 };
 
 /* ============================== RENDER ============================== */
@@ -1379,15 +1504,25 @@ function windCompassLabel(deg){
   const dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
   return dirs[Math.round(norm360(deg)/22.5)%16];
 }
-// Explains any per-spot adjustment so a score never differs from the generic model without saying why.
-function adjustNotes(m){
-  const notes = [];
-  const w = m.adjust && m.adjust.wind;
-  if(w) notes.push(`Wind from the ${w.dir} is ${w.kind==="sheltered"?"blocked by the shoreline here, so it is scored as":"fully exposed here, so it is scored as"} about ${Math.round(w.effMph)} mph (actual ${Math.round(m.weather.windAvg)}).`);
-  const p = m.adjust && m.adjust.phase;
-  if(p) notes.push(`This spot fishes best on ${p.want} water: ${Math.round(p.frac*100)}% of the dawn and dusk windows move that way.`);
-  if(!notes.length) return "";
-  return `<div style="font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.5;color:var(--ink-soft);padding:8px 0;">${notes.map(n=>`<div>${esc(n)}</div>`).join("")}</div>`;
+// Says in plain words why the three main parts scored what they did.
+function whyNotes(m){
+  const w = m.why, notes = [];
+  const dir = windCompassLabel(m.weather.windDirAvg), mph = Math.round(m.weather.windAvg);
+  const e = w.exposure;
+  notes.push(e.fetchUp==null
+    ? `Wind ${dir} ${mph} mph. No shoreline data for this spot, so it is scored as moderately exposed.`
+    : `Wind ${dir} ${mph} mph over ${e.fetchUp.toFixed(1)} mi of open water: ${e.label}.`);
+  const f = w.flow;
+  const flowWord = f.role.want==="either" ? "moving" : (f.role.want==="incoming" ? "rising" : "falling");
+  notes.push(`${f.role.label}: ${f.role.want==="either" ? "any strong flow helps" : f.role.want+" water helps"}, because ${f.role.why}. `
+    + (f.frac==null ? "Not enough tide data in the dawn and dusk windows to judge." : `Water is ${flowWord} ${Math.round(f.frac*100)}% of the dawn and dusk windows.`));
+  const c = w.current;
+  let cur = c.rate==null ? "Not enough tide data in the windows to measure current."
+    : `Water level changing ${c.rate.toFixed(2)} ft/h in the dawn and dusk windows`
+      + (c.refRate ? `, ${Math.round(Math.min(1,c.rate/c.refRate)*100)}% of this station's usual peak.` : ".");
+  if(c.windMove > c.tideMove) cur += ` A ${mph} mph wind moves more water here than the tide today, so that is what is scored.`;
+  notes.push(cur);
+  return `<div style="font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.5;color:var(--ink-soft);padding:8px 0;">${notes.map(n=>`<div style="margin-bottom:4px;">${esc(n)}</div>`).join("")}</div>`;
 }
 function passesFilters(spot){
   if(state.regionFilter!=="all" && spot.region!==state.regionFilter && spot.area!==state.regionFilter) return false;
@@ -1493,7 +1628,7 @@ function renderLedger(){
             <div class="rowgps">${esc(gpsText(spot))}</div>
             <div class="rowsignals">
               <span>Tide ${m.tide.range.toFixed(1)}ft</span>
-              <span>Wind ${Math.round(m.weather.windAvg)}mph ${esc(windCompassLabel(m.weather.windDirAvg))}${m.weather.windAvg>20?' <span class="warn">⚠</span>':""}</span>
+              <span>Wind ${Math.round(m.weather.windAvg)}mph ${esc(windCompassLabel(m.weather.windDirAvg))} · ${esc(m.why.exposure.label)}${m.weather.windAvg>20?' <span class="warn">⚠</span>':""}</span>
               ${m.marine.waterF!=null?`<span>Water ${Math.round(m.marine.waterF)}°</span>`:""}
               <span>Moon ${Math.round(m.moon.illum*100)}% ${m.moon.waxing?"waxing":"waning"}</span>
               ${m.hasMarine&&m.marine.waveFt!=null?`<span>Surf ${m.marine.waveFt.toFixed(1)}ft</span>`:""}
@@ -1609,7 +1744,7 @@ function renderDetail(spot, m){
                 <div class="scoreexplain" id="explain-${key}" ${open?"":"hidden"}>${SCORE_INFO[label]||""}</div>
               </div>`;
             }).join("")}
-            ${adjustNotes(m)}
+            ${whyNotes(m)}
             <div class="scorerow total">
               <div class="scoreline">
                 <span class="scorelabel">Total<button type="button" class="infoicon" data-explain="${spot.id}-total" aria-expanded="${state.openExplains.has(spot.id+"-total")}" aria-controls="explain-${spot.id}-total" aria-label="What the total means">i</button></span>
@@ -1781,6 +1916,7 @@ async function boot(){
     if(!tide || tide.error){ state.spotData[spot.id] = {error: (tide&&tide.error) || "no tide data"}; return; }
     if(!weather){ state.spotData[spot.id] = {error:"no weather forecast"}; return; }
     const raw = {tide, weather, marine: marineMap.get(spot.id) || null, stationInfo: spot.station};
+    raw.refRate = stationRefRate(DAYS.map(d=>tideDayCurve(raw, d).dayCurve));
     const days = {};
     DAYS.forEach(ds=>{ days[ds] = computeDayModel(spot, ds, raw); });
     state.spotData[spot.id] = {raw, days};
