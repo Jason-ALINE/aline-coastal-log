@@ -8,8 +8,11 @@ The 39 `pi-*` spots are the Lower Laguna Madre hotspots from the *Texas Lakes &
 Bays Fishing Atlas* 2025-26 (tables p.223, map p.222), in `ATLAS_PI` in
 `index.html`. GPS is typed as printed and converted in code. Hotspots with the
 same GPS, or the same name within about half a mile, share one spot. Each spot's
-detail view has an **Atlas hotspots** panel with the atlas key, GPS, grid and
-bait/tactic notes. These spots have no wind or phase tags yet.
+detail view has an **Atlas hotspots** panel with the atlas key, GPS and grid.
+The atlas's bait and tactic notes are the publisher's text and are kept out of this
+public repository: they live in the private catch log's database (`atlas`
+collection), which shows them for the selected spot. The source copy is
+`tools/atlas-notes.local.json`, which is git-ignored and stays on this computer.
 
 Every row shows the spot's GPS in degrees and decimal minutes (the atlas format).
 The detail view's **Location** panel repeats it alongside decimal degrees, each with

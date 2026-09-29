@@ -157,7 +157,7 @@ Limitations:
 
 - The Port Isabel shoreline spot is now High School Shoreline, from the atlas p.223
   hotspot table: N 26 04.830, W 97 14.870 (26.0805, -97.2478). It is listed there for
-  sheepshead and as trout hotspot #88 ("park on Highway 100 and wade shore").
+  snook and as trout hotspot #88, as a wade spot reached from Highway 100.
 - Checked against the live NOAA tidepredictions list: its nearest station is still
   8779770 Port Isabel (2.41 mi), so its tide source did not change. The causeway spot
   still resolves to 8779739 (1.06 mi).
@@ -185,9 +185,9 @@ Limitations:
   Vista spots use Port Isabel 8779770 at 4.4-7.8 mi.
 - Browser check: with the Port Isabel filter on, all 43 rows scored with no error
   rows, and the Atlas hotspots panel renders in the detail view.
-- No wind/phase tags on the new spots. Two atlas notes mention tide: Airport Cove
-  (trout: "wade mouth on outgoing tide") and Laguna Vista Cove (redfish: "cove mouth
-  outgoing tide, back incoming"). These are not applied.
+- No wind/phase tags on the new spots. Two atlas notes mention a preferred tide (Airport
+  Cove and Laguna Vista Cove, both favouring the cove mouth on a falling tide). These are
+  not applied.
 
 ## Addendum — Wind exposure, bait flow and current scoring (2026-09-29)
 

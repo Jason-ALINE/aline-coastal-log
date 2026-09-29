@@ -50,6 +50,12 @@
   .msg{font-family:var(--mono);font-size:12.5px;color:var(--slate);}
   .msg.ok{color:var(--good);} .msg.err{color:var(--rust);}
 
+  /* Atlas notes for the chosen spot (kept in this page's private database, not its source) */
+  .hotspots{margin-top:6px;border-left:3px solid var(--line);padding:4px 0 4px 12px;display:flex;flex-direction:column;gap:6px;}
+  .hs-head{font-family:var(--mono);font-size:11.5px;color:var(--slate);text-transform:uppercase;letter-spacing:.06em;}
+  .hs-row{font-size:13.5px;color:var(--ink-soft);overflow-wrap:anywhere;}
+  .hs-row b{color:var(--ink);font-weight:600;margin-right:6px;}
+
   /* Tally */
   .tally{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline;font-family:var(--mono);font-size:13px;color:var(--ink-soft);font-variant-numeric:tabular-nums;}
   .tally b{font-family:var(--display);font-size:22px;color:var(--ink);margin-right:4px;}
@@ -86,7 +92,8 @@
   <section aria-labelledby="entryTitle">
     <h2 id="entryTitle">Log a catch</h2>
     <form id="entryForm" novalidate>
-      <div class="field f-spot"><label for="spot">Spot</label><select id="spot" required></select></div>
+      <div class="field f-spot"><label for="spot">Spot</label><select id="spot" required></select>
+        <div class="hotspots" id="hotspots" hidden></div></div>
       <div class="field f-date"><label for="date">Date</label><input id="date" type="date" required></div>
       <div class="field f-time"><label for="time">Time</label><input id="time" type="time" required></div>
       <div class="field f-species"><label for="species">Species</label>
@@ -157,6 +164,16 @@ function resetWhen(){
 resetWhen();
 
 let db = null, user = null, myId = null, isOwner = false, catches = [], readOnly = false;
+let atlas = {};   // spot id -> hotspot rows from the atlas, loaded from the database
+
+function renderHotspots(){
+  const box = $("hotspots"), rows = atlas[$("spot").value];
+  if(!rows || !rows.length){ box.hidden = true; box.replaceChildren(); return; }
+  box.replaceChildren(el("div","hs-head","Atlas hotspots here · Texas Lakes & Bays Fishing Atlas"),
+    ...rows.map(r=>{ const d = el("div","hs-row"); d.append(el("b", null, r.label), r.tactic || ""); return d; }));
+  box.hidden = false;
+}
+$("spot").addEventListener("change", renderHotspots);
 const armed = new Set();
 
 function setMsg(text, kind){ const m = $("formMsg"); m.textContent = text; m.className = "msg" + (kind ? " "+kind : ""); }
@@ -276,6 +293,11 @@ $("entryForm").addEventListener("submit", async ev=>{
   }
   if(readOnly) setMsg("You can read this log. Ask the owner for Contributor access to add catches.");
   else { setMsg("Ready."); $("saveBtn").disabled = false; }
+  db.collection("atlas").onSnapshot(snap=>{
+    atlas = {};
+    snap.docs.forEach(d=>{ const v = d.data(); if(v && Array.isArray(v.rows)) atlas[d.id] = v.rows; });
+    renderHotspots();
+  }, ()=>{});
   db.collection("catches").orderBy("when","desc").limit(1000).onSnapshot(snap=>{
     catches = snap.docs.map(d=>Object.assign({id:d.id}, d.data()));
     render();

@@ -4,3 +4,4 @@ node_modules/
 tools/.coastline-cache.json
 tools/.wind-setup-cache.json
 tools/.wind-setup-results.json
+tools/atlas-notes.local.json
