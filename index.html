@@ -237,8 +237,11 @@
   .dirsep{color:var(--slate);}
   .whensel{
     font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;cursor:pointer;
-    background:var(--chip-bg);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:5px 10px;
+    background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:5px 10px;
   }
+  /* The open list is drawn by the browser; without these it keeps a white background
+     under the dark theme's light text and the hours are unreadable. */
+  .whensel option{background:var(--surface);color:var(--ink);}
   .dirchip{color:var(--slate);}
   .dirchip.good{color:var(--good);font-weight:600;}
   .dirchip.bad{color:var(--rust);}
