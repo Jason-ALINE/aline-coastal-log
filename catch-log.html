@@ -193,7 +193,7 @@ async function render(){
   // Tally
   const fish = catches.reduce((n,c)=>n+(+c.count||0), 0);
   const tally = $("tally"); tally.replaceChildren();
-  const a = el("span"); a.append(el("b", null, String(catches.length)), "catches logged"); tally.append(a);
+  const a = el("span"); a.append(el("b", null, String(catches.length)), catches.length===1 ? "catch logged" : "catches logged"); tally.append(a);
   const b = el("span"); b.append(el("b", null, String(fish)), "fish"); tally.append(b);
   const spotsFished = new Set(catches.map(c=>c.spotId)).size;
   const c = el("span"); c.append(el("b", null, String(spotsFished)), spotsFished===1 ? "spot" : "spots"); tally.append(c);
