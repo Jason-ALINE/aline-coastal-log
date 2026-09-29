@@ -15,6 +15,9 @@ it means the engineering is clear and the fishing knowledge is not ours to inven
 
 ### 1. Wind direction is displayed but never scored
 
+**Done (2026-09-29).** Scored as wind exposure: open water upwind of each spot in 16
+directions, from OpenStreetMap (`FETCH`, `tools/compute-fetch.js`). See README.
+
 **The gap.** `windScore14()` takes only `avgMph`. A 12 mph SE wind and a 12 mph N
 wind score identically. On the Texas coast they are not remotely the same day: a
 moderate onshore southeast wind is the classic pattern, while a post-frontal north
@@ -37,6 +40,10 @@ light offshore wind should help or hurt at each spot type.
 
 ### 2. Tide range is a proxy for what actually matters — current
 
+**Done (2026-09-29).** Current is scored from NOAA current predictions where a station
+is within 1.5 mi, otherwise from the water-level rate, and bait direction (pushed in /
+pulled out) is shown and scored per spot role. See README.
+
 **The gap.** `tideScore30()` uses `max - min` across the day. Two days can share an
 identical 1.8 ft range while one moves it in four hours (strong current) and the
 other drags it over twelve (nearly slack). Fish respond to moving water, not to the
@@ -48,6 +55,10 @@ window* rather than across the whole day. Score on that instead of, or alongside
 range. This is a strict improvement with no new data.
 
 ### 3. Tide and solunar are summed independently when coincidence is the point
+
+**Open, with a constraint.** The user asked for no time-of-day bias, so any
+coincidence bonus must not favour dawn or dusk; it could reward a solunar period
+landing on strong flow within the time being scored.
 
 **The gap.** The score adds tide movement and solunar separately. But a major
 solunar period that lands *on* a strong outgoing tide at dawn is not the sum of

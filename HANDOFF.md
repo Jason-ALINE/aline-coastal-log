@@ -118,13 +118,16 @@ result is a useful result.
 and reported — the Tier 1 items change what every score means, and changing the
 model before the data plumbing is verified makes both impossible to debug.
 
-The headline item: **wind direction is computed and then ignored by the scoring.**
-A 12 mph onshore and a 12 mph offshore wind currently score identically, which on
-this coast is simply wrong.
+Tier 1 items 1 and 2 (wind direction, current) are done; see `VERIFICATION.md`
+addenda and the README scoring section for the current model.
 
 ---
 
 ## Invariants — do not break these
+
+**No bias toward a time of day or the user's habits.** The score describes the
+whole selected day with every hour equal, or one hour the user picks. Do not weight
+by when the user fishes or favour dawn/dusk. The user asked for this explicitly.
 
 **Every naive timestamp goes through `parseCT()`.** NOAA (`time_zone=lst_ldt`) and
 Open-Meteo (`timezone=America/Chicago`) both return `"2026-09-19 06:00"` with no UTC
@@ -142,9 +145,11 @@ displayed deliberately and excluded deliberately; adding it changes every number
 
 **Keep it one file with no build step.** That is a product decision, not an
 oversight. `index.html` runs by double-clicking. Do not introduce npm, a bundler,
-or a framework. `tools/verify-astronomy.js` is the only Node script, it has no
-dependencies, and it *extracts* functions from `index.html` rather than duplicating
-them — if you move that code block, update the markers in that script.
+or a framework. The Node scripts in `tools/` have no dependencies:
+`verify-astronomy.js` *extracts* functions from `index.html` rather than duplicating
+them (if you move that code block, update its markers); `compute-fetch.js` and
+`compute-depth.js` are run by hand and rewrite the generated `FETCH` and `DEPTH`
+blocks in `index.html`. Rerun both after adding or moving a spot.
 
 **The astronomy is validated by a physical identity.** A full moon rises at sunset.
 `tools/verify-astronomy.js` checks 29 June 2026 at Galveston: moonrise 8:36 PM
@@ -156,6 +161,6 @@ between you and plausible-looking wrong numbers.
 
 ## Known-good baseline
 
-- `node tools/verify-astronomy.js` → 11 checks, all passing
-- Renders correctly at 1000px and 390px, light and dark, against stubbed API data
-- No live API response has ever been observed — that is your job
+- `node tools/verify-astronomy.js` → all checks passing (astronomy, time zone, and
+  the wind-exposure, bait-flow, current, time-window and slack-hole scoring)
+- Live APIs verified; see `VERIFICATION.md` and its addenda
