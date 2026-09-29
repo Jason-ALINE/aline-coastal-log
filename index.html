@@ -255,6 +255,14 @@
   .flag.blown{color:var(--rust);}
   .weekstrip{flex:0 0 auto;line-height:0;}
   @media (max-width:620px){ .weekstrip{display:none;} }
+  /* Phones: give the spot details the width. The list order already shows rank. */
+  @media (max-width:480px){
+    .rowtop{gap:10px;align-items:flex-start;}
+    .rank,.chev{display:none;}
+    .gauge{flex-basis:40px;} .gauge svg{width:40px;height:40px;}
+    .rowname{font-size:17px;}
+    .rowsignals{font-size:12.5px;gap:3px 10px;}
+  }
   .star{
     background:none;border:none;cursor:pointer;padding:6px 2px;color:var(--slate);line-height:0;flex:0 0 auto;
   }
