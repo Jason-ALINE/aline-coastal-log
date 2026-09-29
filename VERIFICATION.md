@@ -152,3 +152,15 @@ Limitations:
 - Port Isabel Shoreline is still a NOAA station position. Page 222 holds the map and
   facilities only. The GPS table for its numbered hotspots is on another page, which
   has not been supplied yet.
+
+## Addendum — Shoreline spot moved to atlas GPS (2026-09-29)
+
+- The Port Isabel shoreline spot is now High School Shoreline, from the atlas p.223
+  hotspot table: N 26 04.830, W 97 14.870 (26.0805, -97.2478). It is listed there for
+  sheepshead and as trout hotspot #88 ("park on Highway 100 and wade shore").
+- Checked against the live NOAA tidepredictions list: its nearest station is still
+  8779770 Port Isabel (2.41 mi), so its tide source did not change. The causeway spot
+  still resolves to 8779739 (1.06 mi).
+- Both Port Isabel bay spots now use atlas GPS. The wind and phase tags were not
+  changed. They were set for the old station position and have not been re-checked
+  against this shoreline's orientation.
