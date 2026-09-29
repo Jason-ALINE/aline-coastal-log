@@ -10,12 +10,12 @@
 <style>
   :root{
     color-scheme:light;
-    --paper:#DCEAEE;
-    --paper-2:#C5DBE0;
-    --surface:#F3FAFB;
+    --paper:#EEF5F7;
+    --paper-2:#D8E7EB;
+    --surface:#FFFFFF;
     --ink:#0A1E24;
     --ink-soft:#1E3A3F;
-    --slate:#3D5F65;
+    --slate:#2F5158;
     --water:#1B6E8C;
     --water-deep:#0F4658;
     --on-water:#F6FCFD;
@@ -124,6 +124,11 @@
     display:flex;justify-content:space-between;align-items:center;gap:10px;
     padding:8px 2px 16px;border-bottom:1px solid var(--line);margin-bottom:16px;flex-wrap:wrap;
   }
+  .meta-actions{display:inline-flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .themebtn{
+    font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;cursor:pointer;
+    background:var(--chip-bg);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:5px 12px;
+  }
   .linkbtn{
     font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;
     color:var(--water-deep);background:none;border:none;padding:0;cursor:pointer;
@@ -184,6 +189,8 @@
   .toppick .tpname{font-family:'Fraunces',Georgia,serif;font-size:21px;font-weight:600;line-height:1.2;}
   .toppick .tpline{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;color:var(--brass-light);margin-top:5px;}
   .toppick .tpmain{flex:1;min-width:210px;}
+  /* The gauge draws its number in --ink, which is dark in light mode; the banner is always deep water. */
+  .toppick svg text{fill:var(--on-deep);}
 
   /* Ledger */
   .ledger{border-top:1px solid var(--ink);}
@@ -355,6 +362,9 @@
   .legend span{display:inline-flex;align-items:center;gap:5px;}
   .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;}
 </style>
+<script>
+try{ const t = localStorage.getItem("coastal-log:theme"); if(t==="light"||t==="dark") document.documentElement.dataset.theme = t; }catch(e){}
+</script>
 </head>
 <body>
 <div class="wrap">
@@ -365,7 +375,7 @@
   </header>
   <div class="meta-line">
     <span id="updatedLine">Loading live data…</span>
-    <span><button type="button" class="linkbtn" id="howScoredLink">How this is scored →</button></span>
+    <span class="meta-actions"><button type="button" class="themebtn" id="themeToggle"></button><button type="button" class="linkbtn" id="howScoredLink">How this is scored →</button></span>
   </div>
 
   <svg class="swatchbar" viewBox="0 0 900 10" preserveAspectRatio="none" aria-hidden="true">
@@ -1865,6 +1875,24 @@ function closeModal(){
   if(lastFocus) lastFocus.focus();
 }
 document.getElementById("howScoredLink").addEventListener("click", openModal);
+
+// Light/dark toggle. With no saved choice the page follows the device setting.
+const THEME_KEY = "coastal-log:theme";
+const themeBtn = document.getElementById("themeToggle");
+const currentTheme = () => document.documentElement.dataset.theme
+  || (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+function labelThemeBtn(){
+  const next = currentTheme()==="dark" ? "light" : "dark";
+  themeBtn.textContent = next==="light" ? "☀ Light mode" : "☾ Dark mode";
+  themeBtn.setAttribute("aria-label", `Switch to ${next} mode`);
+}
+themeBtn.addEventListener("click", ()=>{
+  const next = currentTheme()==="dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try{ localStorage.setItem(THEME_KEY, next); }catch(e){ /* per-viewer nicety only */ }
+  labelThemeBtn();
+});
+labelThemeBtn();
 document.getElementById("modalClose").addEventListener("click", closeModal);
 modalBg.addEventListener("click", e=>{ if(e.target===modalBg) closeModal(); });
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !modalBg.hidden) closeModal(); });
