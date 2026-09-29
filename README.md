@@ -37,6 +37,24 @@ The page needs outbound access to three hosts:
 
 No API keys. Nothing is sent anywhere except those three requests.
 
+## Catch log
+
+`catch-log.html` is a separate page, published privately on claude.ai at
+https://claude.ai/artifact/CnEqPvmHQj4syBf728bMmA with a synced database, so the log
+is the same on every device and survives clearing the browser. The app itself stays a
+local file: hosted pages cannot request data from other sites, and the app needs
+NOAA and Open-Meteo live. The app links to the log from the header (**Catch log**) and
+from each spot (**Log a catch here**, which preselects the spot via `#<spot id>`).
+
+Each catch is one document in the `catches` collection: spot, date, time, species,
+count, length (in), bait or lure, kept or released, notes, and the logging person's
+id. Conditions are not typed in: Claude reconstructs tide, current and wind for a
+catch afterwards from NOAA and Open-Meteo history, then compares catches with the
+scores. The log is private to its owner until shared from its Share menu; people
+given Contributor access can add catches, and the page lets each person delete only
+their own (the owner can delete any). After changing spots in the app, run
+`node tools/sync-catch-log.js` and republish the log so its spot list matches.
+
 ## How the score works
 
 Three questions carry 75 of the 100 points: is the spot protected from the wind, is

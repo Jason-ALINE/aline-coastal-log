@@ -1,0 +1,287 @@
+<title>Coastal Log Catches</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* Layout: one narrow column like a logbook page; entry form first, then the running tally, then entries newest first. */
+  :root{
+    --paper:#EEF5F7; --surface:#FFFFFF; --ink:#0A1E24; --ink-soft:#1E3A3F; --slate:#2F5158;
+    --water:#1B6E8C; --water-deep:#0F4658; --on-water:#F6FCFD; --on-deep:#DCEAEE;
+    --rust:#C1542E; --line:#A9C7CC; --line-soft:#C3DCE0; --good:#27855E; --chip-bg:rgba(255,255,255,0.5);
+    --display:'Fraunces',Georgia,serif; --body:'Inter',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      color-scheme:dark;
+      --paper:#071A21; --surface:#0C242C; --ink:#DCEEF2; --ink-soft:#B4D2D9; --slate:#7FA5AD;
+      --water:#3FA7CC; --water-deep:#08313F; --on-water:#04222C; --on-deep:#DCEEF2;
+      --rust:#F07A4E; --line:#1D4652; --line-soft:#173A45; --good:#4FBF8B; --chip-bg:rgba(255,255,255,0.04);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --paper:#071A21; --surface:#0C242C; --ink:#DCEEF2; --ink-soft:#B4D2D9; --slate:#7FA5AD;
+    --water:#3FA7CC; --water-deep:#08313F; --on-water:#04222C; --on-deep:#DCEEF2;
+    --rust:#F07A4E; --line:#1D4652; --line-soft:#173A45; --good:#4FBF8B; --chip-bg:rgba(255,255,255,0.04);
+  }
+  body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.5;}
+  .wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:20px 48px;display:flex;flex-direction:column;gap:22px;}
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;border-bottom:3px solid var(--ink);padding-bottom:10px;}
+  h1{font-family:var(--display);font-size:clamp(30px,6vw,40px);line-height:1;margin:0;letter-spacing:-.01em;}
+  h1 span{color:var(--water);}
+  .sub{font-family:var(--mono);font-size:12px;color:var(--slate);text-transform:uppercase;letter-spacing:.08em;text-align:right;}
+  h2{font-family:var(--mono);font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--slate);margin:0 0 10px;}
+
+  /* Entry form */
+  form{background:var(--surface);border:1px solid var(--line-soft);border-radius:6px;padding:16px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px 14px;}
+  .field{display:flex;flex-direction:column;gap:4px;min-width:0;}
+  .f-spot{grid-column:span 6;} .f-date,.f-time{grid-column:span 3;}
+  .f-species{grid-column:span 3;} .f-count,.f-length{grid-column:span 3;}
+  .f-bait{grid-column:span 4;} .f-kept{grid-column:span 2;} .f-notes{grid-column:span 6;}
+  @media (min-width:620px){ .f-date,.f-time{grid-column:span 2;} .f-species{grid-column:span 2;} .f-count,.f-length{grid-column:span 1;} .f-spot{grid-column:span 6;} .f-bait{grid-column:span 3;} .f-kept{grid-column:span 1;} }
+  label{font-family:var(--mono);font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--slate);}
+  input,select,textarea{font:inherit;font-size:15px;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:8px 10px;min-width:0;width:100%;box-sizing:border-box;}
+  textarea{resize:vertical;min-height:44px;}
+  select option{background:var(--surface);color:var(--ink);}
+  input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--water);outline-offset:1px;}
+  .actions{grid-column:1 / -1;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .btn{font-family:var(--body);font-weight:600;font-size:15px;background:var(--water);color:var(--on-water);border:none;border-radius:4px;padding:10px 18px;cursor:pointer;}
+  .btn[disabled]{opacity:.55;cursor:default;}
+  .msg{font-family:var(--mono);font-size:12.5px;color:var(--slate);}
+  .msg.ok{color:var(--good);} .msg.err{color:var(--rust);}
+
+  /* Tally */
+  .tally{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline;font-family:var(--mono);font-size:13px;color:var(--ink-soft);font-variant-numeric:tabular-nums;}
+  .tally b{font-family:var(--display);font-size:22px;color:var(--ink);margin-right:4px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .chip{font-family:var(--mono);font-size:12px;background:var(--chip-bg);border:1px solid var(--line);border-radius:12px;padding:3px 10px;color:var(--ink-soft);}
+
+  /* Entries */
+  .listhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;}
+  .listhead h2{margin:0;}
+  .listhead select{width:auto;max-width:100%;font-size:13px;padding:5px 8px;}
+  .entries{display:flex;flex-direction:column;border-top:1px solid var(--line);}
+  .entry{display:grid;grid-template-columns:92px minmax(0,1fr) auto;gap:4px 14px;padding:12px 2px;border-bottom:1px solid var(--line-soft);align-items:start;}
+  .when{font-family:var(--mono);font-size:12.5px;color:var(--slate);font-variant-numeric:tabular-nums;line-height:1.35;}
+  .what{min-width:0;}
+  .catchline{font-weight:600;}
+  .spotname{font-family:var(--display);font-size:16px;font-weight:600;overflow-wrap:anywhere;}
+  .detail{font-size:13.5px;color:var(--ink-soft);overflow-wrap:anywhere;}
+  .tag{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-radius:3px;padding:1px 6px;margin-left:6px;border:1px solid var(--line);color:var(--slate);}
+  .tag.kept{color:var(--rust);border-color:var(--rust);}
+  .del{font-family:var(--mono);font-size:12px;background:none;border:1px solid var(--line);color:var(--slate);border-radius:4px;padding:4px 8px;cursor:pointer;white-space:nowrap;}
+  .del.armed{border-color:var(--rust);color:var(--rust);}
+  .empty{font-family:var(--mono);font-size:13px;color:var(--slate);padding:18px 2px;}
+  .foot{font-size:13px;color:var(--slate);max-width:62ch;}
+  @media (max-width:480px){ .entry{grid-template-columns:minmax(0,1fr) auto;} .when{grid-column:1 / -1;} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important;} }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Catch <span>Log</span></h1>
+    <div class="sub">Coastal Log<br>synced on every device</div>
+  </header>
+
+  <section aria-labelledby="entryTitle">
+    <h2 id="entryTitle">Log a catch</h2>
+    <form id="entryForm" novalidate>
+      <div class="field f-spot"><label for="spot">Spot</label><select id="spot" required></select></div>
+      <div class="field f-date"><label for="date">Date</label><input id="date" type="date" required></div>
+      <div class="field f-time"><label for="time">Time</label><input id="time" type="time" required></div>
+      <div class="field f-species"><label for="species">Species</label>
+        <select id="species" required>
+          <option>Redfish</option><option>Speckled trout</option><option>Flounder</option><option>Snook</option>
+          <option>Black drum</option><option>Sheepshead</option><option>Other</option>
+        </select></div>
+      <div class="field f-count"><label for="count">Count</label><input id="count" type="number" min="1" step="1" value="1" required inputmode="numeric"></div>
+      <div class="field f-length"><label for="length">Length (in)</label><input id="length" type="number" min="1" max="80" step="0.5" inputmode="decimal" placeholder="opt."></div>
+      <div class="field f-bait"><label for="bait">Bait or lure</label><input id="bait" type="text" maxlength="80" placeholder="e.g. live shrimp under a cork"></div>
+      <div class="field f-kept"><label for="kept">Fate</label><select id="kept"><option value="released">Released</option><option value="kept">Kept</option></select></div>
+      <div class="field f-notes"><label for="notes">Notes</label><textarea id="notes" maxlength="500" rows="2" placeholder="Where exactly, water color, what the bait was doing"></textarea></div>
+      <div class="actions"><button class="btn" id="saveBtn" type="submit" disabled>Save catch</button><span class="msg" id="formMsg" role="status">Connecting to your log…</span></div>
+    </form>
+  </section>
+
+  <section aria-labelledby="tallyTitle">
+    <h2 id="tallyTitle">Tally</h2>
+    <div class="tally" id="tally"><span><b>0</b>catches logged</span></div>
+    <div class="chips" id="speciesChips"></div>
+  </section>
+
+  <section aria-labelledby="listTitle">
+    <div class="listhead">
+      <h2 id="listTitle">Catches</h2>
+      <select id="filterSpot" aria-label="Show catches from one spot"><option value="">All spots</option></select>
+    </div>
+    <div class="entries" id="entries"><div class="empty">Loading your log…</div></div>
+  </section>
+
+  <p class="foot">Tide, current and wind for each catch are not typed in here. Claude looks them up afterwards from NOAA's records for that spot and time, which are more accurate than a forecast, and can then compare your catches with Coastal Log's scores.</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* SPOTS:BEGIN — copied from Coastal Log (index.html) by tools/sync-catch-log.js; do not edit by hand */
+const SPOTS = [{"id":"sabine","name":"Sabine Pass Jetties","group":"Upper"},{"id":"rollover","name":"Rollover Pass / Bolivar Flats","group":"Upper"},{"id":"galveston","name":"Galveston South Jetty","group":"Upper"},{"id":"sanluis","name":"San Luis Pass","group":"Upper"},{"id":"freeport","name":"Freeport / Surfside Jetties","group":"Upper"},{"id":"matagorda","name":"Matagorda Jetties / Pass Cavallo","group":"Upper"},{"id":"poc","name":"Port O'Connor / Matagorda Ship Channel","group":"Middle"},{"id":"rockport","name":"Rockport / Aransas Bay","group":"Middle"},{"id":"portaransas","name":"Port Aransas Jetties","group":"Middle"},{"id":"bobhall","name":"Bob Hall Pier, Padre Island","group":"Middle"},{"id":"baffin","name":"Baffin Bay","group":"Middle"},{"id":"mansfield","name":"Port Mansfield","group":"Lower"},{"id":"spi","name":"South Padre Island / Isla Blanca Jetties","group":"Port Isabel"},{"id":"bocachica","name":"Boca Chica Beach","group":"Port Isabel"},{"id":"portisabel","name":"High School Shoreline, Port Isabel / Laguna Madre","group":"Port Isabel"},{"id":"causeway","name":"Queen Isabella Causeway (west end) / Pirates Landing Pier","group":"Port Isabel"},{"id":"pi-airportcove","name":"Airport Cove","group":"Port Isabel"},{"id":"pi-drumboats","name":"East of Drum Boats / S. Padre Island (north end)","group":"Port Isabel"},{"id":"pi-colorchange","name":"Color Change","group":"Port Isabel"},{"id":"pi-baysideisland","name":"Bay Side of Island","group":"Port Isabel"},{"id":"pi-marker97","name":"Spoils at Marker 97","group":"Port Isabel"},{"id":"pi-longbar","name":"Long Bar","group":"Port Isabel"},{"id":"pi-longbaricw","name":"Long Bar @ ICW Edge","group":"Port Isabel"},{"id":"pi-shrimpfarm","name":"Front of Shrimp Farm","group":"Port Isabel"},{"id":"pi-hollyislands","name":"Islands at Holly Beach","group":"Port Isabel"},{"id":"pi-hollybeach","name":"Holly Beach","group":"Port Isabel"},{"id":"pi-bowiepark","name":"Bowie Park","group":"Port Isabel"},{"id":"pi-baysidefingers","name":"Bayside Fingers","group":"Port Isabel"},{"id":"pi-texaco","name":"Texaco Channel","group":"Port Isabel"},{"id":"pi-lvcove","name":"Laguna Vista Cove","group":"Port Isabel"},{"id":"pi-lomagrulla","name":"Loma de la Grulla","group":"Port Isabel"},{"id":"pi-parallelbar","name":"Parallel Bar","group":"Port Isabel"},{"id":"pi-westspoil","name":"West of Spoil Area","group":"Port Isabel"},{"id":"pi-sh100fm510","name":"SH100 / FM 510 Interchange","group":"Port Isabel"},{"id":"pi-lvhwy100","name":"Laguna Vista along Hwy. 100","group":"Port Isabel"},{"id":"pi-hwy100drop","name":"Highway 100 Dropoff","group":"Port Isabel"},{"id":"pi-bridgepoint","name":"Bridgepoint Channel","group":"Port Isabel"},{"id":"pi-icwedge","name":"Edge of Intracoastal","group":"Port Isabel"},{"id":"pi-newcauseway","name":"New Causeway (N or S side)","group":"Port Isabel"},{"id":"pi-oldcauseway","name":"Old Queen Isabella Causeway","group":"Port Isabel"},{"id":"pi-coastguard","name":"Coast Guard Station (S. side)","group":"Port Isabel"},{"id":"pi-northjetties","name":"North of Jetties","group":"Port Isabel"},{"id":"pi-railbed","name":"Railbed","group":"Port Isabel"},{"id":"pi-turningbasin","name":"Turning Basin / Barracuda Cove","group":"Port Isabel"},{"id":"pi-mexequita","name":"Mexequita Flats","group":"Port Isabel"},{"id":"pi-delmar","name":"Del Mar Beach","group":"Port Isabel"},{"id":"pi-southbaypass","name":"South Bay Pass","group":"Port Isabel"},{"id":"pi-they","name":"The Y","group":"Port Isabel"},{"id":"pi-southbaymouth","name":"Mouth of South Bay","group":"Port Isabel"},{"id":"pi-southbaychannels","name":"South Bay Channels","group":"Port Isabel"},{"id":"pi-southbaymangroves","name":"Mangroves in South Bay","group":"Port Isabel"},{"id":"pi-southbay","name":"South Bay","group":"Port Isabel"},{"id":"pi-southbayse","name":"South Bay (SE corner)","group":"Port Isabel"},{"id":"pi-tabletop","name":"South Bay East Table Top","group":"Port Isabel"},{"id":"pi-westsouthbay","name":"West South Bay Mangroves","group":"Port Isabel"}];
+/* SPOTS:END */
+const GROUP_ORDER = ["Port Isabel","Lower","Middle","Upper"];
+const byId = new Map(SPOTS.map(s=>[s.id, s]));
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,"0");
+
+// Spot pickers, grouped like the app's region filter.
+function fillSpotSelect(sel){
+  GROUP_ORDER.forEach(g=>{
+    const og = document.createElement("optgroup");
+    og.label = g;
+    SPOTS.filter(s=>s.group===g).forEach(s=>{
+      const o = document.createElement("option"); o.value = s.id; o.textContent = s.name; og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+}
+fillSpotSelect($("spot"));
+fillSpotSelect($("filterSpot"));
+
+// "Log a catch here" in Coastal Log links here with #<spot id>.
+const hashSpot = decodeURIComponent(location.hash.slice(1));
+if(byId.has(hashSpot)) $("spot").value = hashSpot;
+
+function resetWhen(){
+  const now = new Date();
+  $("date").value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  $("time").value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+resetWhen();
+
+let db = null, user = null, myId = null, isOwner = false, catches = [], readOnly = false;
+const armed = new Set();
+
+function setMsg(text, kind){ const m = $("formMsg"); m.textContent = text; m.className = "msg" + (kind ? " "+kind : ""); }
+
+function el(tag, cls, text){ const e = document.createElement(tag); if(cls) e.className = cls; if(text!=null) e.textContent = text; return e; }
+
+function fmtDate(d){
+  const [y,m,day] = d.split("-").map(Number);
+  return new Date(y, m-1, day).toLocaleDateString("en-US",{weekday:"short", month:"short", day:"numeric"}) + (y!==new Date().getFullYear() ? ` ${y}` : "");
+}
+function fmtTime(t){
+  const [h,m] = t.split(":").map(Number);
+  return `${h%12||12}:${pad(m)} ${h<12?"AM":"PM"}`;
+}
+
+async function render(){
+  // Tally
+  const fish = catches.reduce((n,c)=>n+(+c.count||0), 0);
+  const tally = $("tally"); tally.replaceChildren();
+  const a = el("span"); a.append(el("b", null, String(catches.length)), "catches logged"); tally.append(a);
+  const b = el("span"); b.append(el("b", null, String(fish)), "fish"); tally.append(b);
+  const spotsFished = new Set(catches.map(c=>c.spotId)).size;
+  const c = el("span"); c.append(el("b", null, String(spotsFished)), spotsFished===1 ? "spot" : "spots"); tally.append(c);
+  const per = {};
+  catches.forEach(x=>{ per[x.species] = (per[x.species]||0) + (+x.count||0); });
+  $("speciesChips").replaceChildren(...Object.entries(per).sort((p,q)=>q[1]-p[1]).map(([s,n])=>el("span","chip",`${s} ${n}`)));
+
+  // Entries
+  const list = $("entries");
+  const f = $("filterSpot").value;
+  const rows = f ? catches.filter(x=>x.spotId===f) : catches;
+  if(!rows.length){
+    list.replaceChildren(el("div","empty", catches.length
+      ? "No catches logged at this spot yet."
+      : "No catches logged yet. Fill in the form above and tap Save catch to add your first one."));
+    return;
+  }
+  const others = [...new Set(rows.map(r=>r.by).filter(id=>id && id!==myId))];
+  const names = others.length && user ? await user.profiles(others) : {};
+  list.replaceChildren(...rows.map(r=>{
+    const row = el("div","entry");
+    const when = el("div","when"); when.append(fmtDate(r.date), el("br"), fmtTime(r.time));
+    const what = el("div","what");
+    const spot = byId.get(r.spotId);
+    what.append(el("div","spotname", spot ? spot.name : r.spotName || "Unknown spot"));
+    const line = el("div","catchline", `${r.count} ${r.species}${r.lengthIn ? `, ${r.lengthIn} in` : ""}`);
+    line.append(el("span", "tag" + (r.kept==="kept" ? " kept" : ""), r.kept==="kept" ? "kept" : "released"));
+    what.append(line);
+    const bits = [];
+    if(r.bait) bits.push(r.bait);
+    if(r.notes) bits.push(r.notes);
+    if(r.by && r.by!==myId) bits.push(`logged by ${(names[r.by] && names[r.by].name) || "someone else"}`);
+    if(bits.length) what.append(el("div","detail", bits.join(" · ")));
+    row.append(when, what);
+    if(db && !readOnly && (r.by===myId || isOwner)){
+      const del = el("button","del" + (armed.has(r.id) ? " armed" : ""), armed.has(r.id) ? "Tap again to delete" : "Delete");
+      del.type = "button";
+      del.addEventListener("click", ()=>deleteEntry(r.id));
+      row.append(del);
+    }else row.append(el("span"));
+    return row;
+  }));
+}
+
+async function deleteEntry(id){
+  if(!armed.has(id)){
+    armed.add(id); render();
+    setTimeout(()=>{ if(armed.delete(id)) render(); }, 4000);
+    return;
+  }
+  armed.delete(id);
+  try{ await db.collection("catches").doc(id).delete(); setMsg("Catch deleted.", "ok"); }
+  catch(e){ setMsg("Could not delete that catch. Reload the page and try again.", "err"); }
+}
+
+$("filterSpot").addEventListener("change", render);
+
+$("entryForm").addEventListener("submit", async ev=>{
+  ev.preventDefault();
+  if(!db || readOnly) return;
+  const count = parseInt($("count").value, 10);
+  const length = $("length").value ? +$("length").value : null;
+  if(!$("date").value || !$("time").value){ setMsg("Enter the date and time of the catch.", "err"); return; }
+  if(!(count>=1)){ setMsg("Count must be 1 or more.", "err"); return; }
+  if(length!=null && !(length>0 && length<=80)){ setMsg("Length should be in inches, between 1 and 80.", "err"); return; }
+  const spot = byId.get($("spot").value);
+  const doc = {
+    spotId: spot.id, spotName: spot.name,
+    date: $("date").value, time: $("time").value, when: `${$("date").value}T${$("time").value}`,
+    species: $("species").value, count, lengthIn: length,
+    bait: $("bait").value.trim(), kept: $("kept").value, notes: $("notes").value.trim(),
+    by: myId, created: new Date().toISOString()
+  };
+  $("saveBtn").disabled = true;
+  try{
+    await db.collection("catches").doc().set(doc);
+    setMsg(`Saved: ${count} ${doc.species} at ${spot.name.split(" / ")[0]}.`, "ok");
+    $("count").value = "1"; $("length").value = ""; $("notes").value = "";
+  }catch(e){
+    if(e && e.code==="invalid_argument"){ readOnly = true; setMsg("You can read this log but not add to it. Ask the owner for Contributor access.", "err"); render(); }
+    else if(e && e.code==="quota_exceeded") setMsg("The log is full. Delete old entries to make room.", "err");
+    else setMsg("Could not save. Check your connection and tap Save catch again.", "err");
+  }finally{
+    $("saveBtn").disabled = readOnly;
+  }
+});
+
+(async ()=>{
+  const use = window.claude && window.claude.use;
+  if(!use){ setMsg("Open this log from claude.ai while signed in to load and save catches.", "err"); $("entries").replaceChildren(el("div","empty","The log is not connected in this view.")); return; }
+  [db, user] = await Promise.all([use("db"), use("user")]);
+  if(!db){ setMsg("Sign in to claude.ai to load and save catches.", "err"); $("entries").replaceChildren(el("div","empty","The log is not connected in this view.")); return; }
+  if(user){
+    myId = await user.id();
+    isOwner = await user.isOwner();
+    if(await user.can("data.write") === false) readOnly = true;
+  }
+  if(readOnly) setMsg("You can read this log. Ask the owner for Contributor access to add catches.");
+  else { setMsg("Ready."); $("saveBtn").disabled = false; }
+  db.collection("catches").orderBy("when","desc").limit(1000).onSnapshot(snap=>{
+    catches = snap.docs.map(d=>Object.assign({id:d.id}, d.data()));
+    render();
+  }, err=>{
+    setMsg("Lost the connection to your log. Reload the page to reconnect.", "err");
+  });
+})();
+})();
+</script>

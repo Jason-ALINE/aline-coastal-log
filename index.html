@@ -226,6 +226,7 @@
     font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;cursor:pointer;
     background:var(--chip-bg);color:var(--ink-soft);border:1px solid var(--line-soft);border-radius:3px;padding:4px 10px;
   }
+  .gpslinks{display:flex;gap:6px 20px;flex-wrap:wrap;}
   .maplink{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;color:var(--water);}
   .rowsignals{
     font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13.5px;color:var(--ink-soft);
@@ -388,7 +389,7 @@ try{ const t = localStorage.getItem("coastal-log:theme"); if(t==="light"||t==="d
   </header>
   <div class="meta-line">
     <span id="updatedLine">Loading live data…</span>
-    <span class="meta-actions"><button type="button" class="themebtn" id="themeToggle"></button><button type="button" class="linkbtn" id="howScoredLink">How this is scored →</button></span>
+    <span class="meta-actions"><a class="linkbtn" id="catchLogLink" href="#" target="_blank" rel="noopener">Catch log ↗</a><button type="button" class="themebtn" id="themeToggle"></button><button type="button" class="linkbtn" id="howScoredLink">How this is scored →</button></span>
   </div>
 
   <svg class="swatchbar" viewBox="0 0 900 10" preserveAspectRatio="none" aria-hidden="true">
@@ -497,6 +498,9 @@ try{ const t = localStorage.getItem("coastal-log:theme"); if(t==="light"||t==="d
 /* ============================== CONSTANTS ============================== */
 const RAD = Math.PI/180, DEG = 180/Math.PI;
 const APP_NAME = "ALINE_CoastalLog";
+// The synced catch log (catch-log.html, published privately on claude.ai). A #spot-id
+// on the link preselects that spot in the log's form.
+const CATCH_LOG_URL = "https://claude.ai/artifact/CnEqPvmHQj4syBf728bMmA";
 const TZ = "America/Chicago";
 const DAY_COUNT = 8;
 const CACHE_TTL_MS = 30*60*1000;
@@ -1954,7 +1958,10 @@ function renderDetail(spot, m){
         <div class="panelbody gpsbody">
           <div class="gpsline"><span class="gpsval">${esc(gpsText(spot))}</span><button type="button" class="copybtn" data-copy="${esc(gpsText(spot))}">Copy</button></div>
           <div class="gpsline"><span class="gpsval">${esc(gpsDecimal(spot))}</span><button type="button" class="copybtn" data-copy="${esc(gpsDecimal(spot))}">Copy</button></div>
-          <a class="maplink" href="https://www.google.com/maps/search/?api=1&amp;query=${spot.lat},${spot.lon}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+          <div class="gpslinks">
+            <a class="maplink" href="https://www.google.com/maps/search/?api=1&amp;query=${spot.lat},${spot.lon}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+            <a class="maplink" href="${CATCH_LOG_URL}#${encodeURIComponent(spot.id)}" target="_blank" rel="noopener">Log a catch here ↗</a>
+          </div>
         </div>
       </div>
       ${m.currentDay ? `<div class="panel wide">
@@ -2180,6 +2187,8 @@ function closeModal(){
   if(lastFocus) lastFocus.focus();
 }
 document.getElementById("howScoredLink").addEventListener("click", openModal);
+
+document.getElementById("catchLogLink").href = CATCH_LOG_URL;
 
 // Light/dark toggle. With no saved choice the page follows the device setting.
 const THEME_KEY = "coastal-log:theme";
