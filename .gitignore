@@ -2,3 +2,5 @@
 node_modules/
 *.log
 tools/.coastline-cache.json
+tools/.wind-setup-cache.json
+tools/.wind-setup-results.json

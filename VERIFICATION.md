@@ -277,3 +277,36 @@ Limitations:
 - 5 m resampling at Texaco Channel and Highway 100 Dropoff found no channel or drop
   within 150 m; Color Change reads a uniform 3.5 ft at all 2,821 points, which looks
   interpolated rather than surveyed.
+
+## Addendum — Wind-driven water model: tested, not adopted (2026-09-29)
+
+`tools/fit-wind-setup.js` fits, per NOAA water-level station, the observed-minus-predicted
+residual against wind stress (Open-Meteo archive, speed-squared vector averaged over the
+past 6, 24 and 72 h), with a slow offset from the last 24 h of observed residual. Data
+2025-09-01 to 2026-08-31; tested on November-February (front season), never used for
+fitting, from forecast starts every 24 h, 1-72 h ahead, using the actual wind (an upper
+bound). Scored on whether the hour's water direction (rising = in, falling = out)
+matched the observed, for hours the water moved at least 0.03 ft/h.
+
+| Station | Tide table | Wind model | Wind-event hours: tide | Wind-event hours: model |
+| --- | --- | --- | --- | --- |
+| 8779770 Port Isabel | 94.3% | 94.1% | 84.4% | 84.5% |
+| 8779748 SPI CG Station | 95.0% | 94.8% | 86.5% | 86.1% |
+| 8779749 SPI Brazos Santiago | 93.5% | 93.6% | 85.0% | 85.4% |
+| 8779280 Realitos Peninsula | 95.3% | 96.4% | 62.2% | 76.8% |
+| 8773701 Port O'Connor | 92.8% | 93.3% | 71.1% | 76.1% |
+| 8770971 Rollover Pass | 85.9% | 87.2% | 74.6% | 78.2% |
+| 8774770 Rockport | 90.8% | 90.3% | 53.7% | 55.7% |
+| 8775241 Aransas Pass | 88.6% | 88.8% | 78.5% | 79.1% |
+| 8772471 Freeport Harbor | 91.5% | 91.7% | 84.9% | 85.3% |
+| 8771972 San Luis Pass | 90.5% | 90.7% | 80.0% | 81.3% |
+| 8770822 Texas Point | 88.4% | 88.8% | 82.1% | 83.2% |
+
+Wind-event hours: the residual changed by more than 0.05 ft in the hour. A first run
+tested June-August and was discarded as unrepresentative (few fronts).
+
+Decision: not added to the app. Around Port Isabel, where most spots are, the tide
+table already gets direction right 94% of hours and the model adds nothing even during
+wind events. It helps only well away from a pass (Realitos +15 points, Port O'Connor +5,
+Rollover +4 in wind events), which would cover 4 spots for a live observed-water feed
+and a second model. Revisit if Laguna spots away from Port Isabel are added.

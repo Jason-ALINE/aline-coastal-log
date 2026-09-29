@@ -74,6 +74,15 @@ the modal copy and README table when you do.
 
 ---
 
+### Wind-driven water level (setup) — tested, not adopted
+
+See the `VERIFICATION.md` addendum of 2026-09-29. Around Port Isabel the tide table
+already gets the water's direction right about 94% of hours, and a wind model adds
+nothing there. Worth revisiting only for spots far from a pass (it helped at Realitos
+and Port O'Connor). `tools/fit-wind-setup.js` reruns the test.
+
+---
+
 ## Tier 2 — Data the app does not yet pull
 
 ### 4. Freshwater inflow after rain
