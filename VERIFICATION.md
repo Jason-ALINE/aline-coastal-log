@@ -161,6 +161,5 @@ Limitations:
 - Checked against the live NOAA tidepredictions list: its nearest station is still
   8779770 Port Isabel (2.41 mi), so its tide source did not change. The causeway spot
   still resolves to 8779739 (1.06 mi).
-- Both Port Isabel bay spots now use atlas GPS. The wind and phase tags were not
-  changed. They were set for the old station position and have not been re-checked
-  against this shoreline's orientation.
+- Both Port Isabel bay spots now use atlas GPS. The wind tags (exposed E/SE,
+  sheltered SW/W/NW) were confirmed by the user: the shoreline faces east/southeast.
