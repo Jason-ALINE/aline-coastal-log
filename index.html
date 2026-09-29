@@ -208,6 +208,18 @@
     color:var(--slate);text-transform:uppercase;letter-spacing:.05em;
     display:inline-flex;align-items:center;gap:3px;
   }
+  .rowgps{
+    font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:var(--slate);
+    margin-top:2px;font-variant-numeric:tabular-nums;
+  }
+  .gpsbody{display:flex;flex-direction:column;gap:8px;}
+  .gpsline{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .gpsval{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:16px;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .copybtn{
+    font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;cursor:pointer;
+    background:var(--chip-bg);color:var(--ink-soft);border:1px solid var(--line-soft);border-radius:3px;padding:4px 10px;
+  }
+  .maplink{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;color:var(--water);}
   .rowsignals{
     font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13.5px;color:var(--ink-soft);
     margin-top:3px;display:flex;gap:14px;flex-wrap:wrap;font-variant-numeric:tabular-nums;
@@ -455,9 +467,9 @@ const SPOTS = [
   // Port Isabel area, GPS from the Texas Lakes & Bays Fishing Atlas 2025-26.
   // portisabel: High School Shoreline, p.223 (N 26 04.830, W 97 14.870).
   // causeway: Pirates Landing Pier, p.222 facilities table (N 26 04.734, W 97 12.402).
-  {id:"portisabel", name:"High School Shoreline, Port Isabel / Laguna Madre", region:"Lower", area:"Port Isabel", lat:26.0805, lon:-97.2478, types:["bay"],
+  {id:"portisabel", name:"High School Shoreline, Port Isabel / Laguna Madre", region:"Lower", area:"Port Isabel", lat:dmToDeg("26 04.830"), lon:-dmToDeg("97 14.870"), types:["bay"],
     wind:{exposed:["E","SE"], sheltered:["SW","W","NW"]}, phase:"outgoing"},
-  {id:"causeway", name:"Queen Isabella Causeway (west end) / Pirates Landing Pier", region:"Lower", area:"Port Isabel", lat:26.0789, lon:-97.2067, types:["bay"],
+  {id:"causeway", name:"Queen Isabella Causeway (west end) / Pirates Landing Pier", region:"Lower", area:"Port Isabel", lat:dmToDeg("26 04.734"), lon:-dmToDeg("97 12.402"), types:["bay"],
     wind:{exposed:["E","SE"], sheltered:[]}},
 ];
 
@@ -567,7 +579,7 @@ function dmToDeg(dm){ const [d,m] = dm.split(" ").map(Number); return d + m/60; 
 const atlasRows = rows => rows.map(([label,lat,lon,grid,tactic])=>({label, gps:`N ${lat}, W ${lon}`, grid:`222/${grid}`, tactic}));
 ATLAS_PI.forEach(([id,name,types,rows])=>{
   SPOTS.push({id, name, region:"Lower", area:"Port Isabel",
-    lat:+dmToDeg(rows[0][1]).toFixed(4), lon:-dmToDeg(rows[0][2]).toFixed(4), types, atlas:atlasRows(rows)});
+    lat:dmToDeg(rows[0][1]), lon:-dmToDeg(rows[0][2]), types, atlas:atlasRows(rows)});
 });
 SPOTS.forEach(s=>{ if(ATLAS_PI_EXTRA[s.id]) s.atlas = atlasRows(ATLAS_PI_EXTRA[s.id]); });
 
@@ -579,6 +591,14 @@ function haversineMiles(lat1,lon1,lat2,lon2){
   return Rm*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 function pad2(n){ return n<10?"0"+n:""+n; }
+// Degrees + decimal minutes, the format the atlas prints and most marine GPS units take.
+function gpsDM(deg, pos, neg){
+  const a = Math.abs(deg), d = Math.floor(a);
+  let m = ((a-d)*60).toFixed(3);
+  return `${deg<0?neg:pos} ${d}° ${m.padStart(6,"0")}′`;
+}
+const gpsText = spot => `${gpsDM(spot.lat,"N","S")} ${gpsDM(spot.lon,"E","W")}`;
+const gpsDecimal = spot => `${spot.lat.toFixed(4)}, ${spot.lon.toFixed(4)}`;
 
 // Minutes that the Central wall clock sits behind/ahead of UTC at a given instant.
 // CDT -> -300, CST -> -360.
@@ -1454,6 +1474,7 @@ function renderLedger(){
       return `<div class="row"><div class="rowhead"><div class="rowtop" style="cursor:default">
         <span class="rank">${i+1}</span><div class="gauge"></div>
         <div class="rowmain"><div class="rowname">${esc(spot.name)} ${typeLabel}</div>
+        <div class="rowgps">${esc(gpsText(spot))}</div>
         <div class="errnote">${note}</div></div>
       </div>${starBtn}</div></div>`;
     }
@@ -1469,6 +1490,7 @@ function renderLedger(){
           <div class="gauge">${gaugeSvg(m.total)}</div>
           <div class="rowmain">
             <div class="rowname">${esc(spot.name)} ${typeLabel}</div>
+            <div class="rowgps">${esc(gpsText(spot))}</div>
             <div class="rowsignals">
               <span>Tide ${m.tide.range.toFixed(1)}ft</span>
               <span>Wind ${Math.round(m.weather.windAvg)}mph ${esc(windCompassLabel(m.weather.windDirAvg))}${m.weather.windAvg>20?' <span class="warn">⚠</span>':""}</span>
@@ -1504,6 +1526,14 @@ function renderDetail(spot, m){
       <b>Sunrise ${fmtTime(m.sunrise)} · Sunset ${fmtTime(m.sunset)}</b>
     </div>
     <div class="panelgrid">
+      <div class="panel wide">
+        <div class="panelhead">Location</div>
+        <div class="panelbody gpsbody">
+          <div class="gpsline"><span class="gpsval">${esc(gpsText(spot))}</span><button type="button" class="copybtn" data-copy="${esc(gpsText(spot))}">Copy</button></div>
+          <div class="gpsline"><span class="gpsval">${esc(gpsDecimal(spot))}</span><button type="button" class="copybtn" data-copy="${esc(gpsDecimal(spot))}">Copy</button></div>
+          <a class="maplink" href="https://www.google.com/maps/search/?api=1&amp;query=${spot.lat},${spot.lon}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+        </div>
+      </div>
       <div class="panel wide">
         <div class="panelhead">Tide curve</div>
         <div class="panelbody">
@@ -1619,7 +1649,28 @@ document.getElementById("dayTabs").addEventListener("keydown", e=>{
   if(next) next.focus();
 });
 
+// execCommand fallback covers file:// pages and browsers that refuse the async clipboard.
+function copyViaTextarea(text){
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try{ if(!document.execCommand("copy")) throw new Error("copy refused"); } finally { ta.remove(); }
+}
+function copyText(text){
+  if(navigator.clipboard && window.isSecureContext)
+    return navigator.clipboard.writeText(text).catch(()=>copyViaTextarea(text));
+  try{ copyViaTextarea(text); return Promise.resolve(); }
+  catch(e){ return Promise.reject(e); }
+}
 document.getElementById("ledger").addEventListener("click", e=>{
+  const copy = e.target.closest(".copybtn");
+  if(copy){
+    copyText(copy.dataset.copy).then(()=>{
+      copy.textContent = "Copied";
+      setTimeout(()=>{ copy.textContent = "Copy"; }, 1500);
+    }).catch(()=>{ copy.textContent = "Copy failed"; });
+    return;
+  }
   const info = e.target.closest(".infoicon");
   if(info){
     const key = info.dataset.explain;

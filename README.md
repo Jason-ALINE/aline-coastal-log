@@ -11,6 +11,11 @@ same GPS, or the same name within about half a mile, share one spot. Each spot's
 detail view has an **Atlas hotspots** panel with the atlas key, GPS, grid and
 bait/tactic notes. These spots have no wind or phase tags yet.
 
+Every row shows the spot's GPS in degrees and decimal minutes (the atlas format).
+The detail view's **Location** panel repeats it alongside decimal degrees, each with
+a Copy button, plus an Open in Google Maps link. Atlas spots store full-precision
+coordinates, so the displayed minutes match the printed page exactly.
+
 One self-contained HTML file. No build step, no dependencies, no server — open
 `index.html` in a browser and it fetches everything it needs.
 
