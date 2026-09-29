@@ -58,6 +58,14 @@ no sea state, so the other parts scale up by 100/95.
 | Sea state | 5 | 1–3 ft with a 7s+ swell period, surf/jetty/offshore only |
 | Slack-water holes | bonus, up to 10 | Deep water within 300 m (NOAA depth), earned only for the slack share of the time scored |
 
+### Best hours
+
+Each spot's detail view and the Best bet banner show the best stretch of the day by
+the app's own score: the model is run for each of the 24 hours, and the top hour plus
+any neighbours within 3 points is reported with the reason (bait direction and speed,
+wind exposure, slack over deep water). It replaces the old dawn/dusk "best window",
+which favoured those times by assumption. It is computed only for what is on screen.
+
 ### Wind exposure: open water upwind
 
 `FETCH` in `index.html` holds, for every spot, the miles of open water in 16

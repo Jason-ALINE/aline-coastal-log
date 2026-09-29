@@ -1332,7 +1332,7 @@ function tideDayCurve(raw, ds){
   return {dayHilo, dayCurve, curveSynthesized};
 }
 
-function computeDayModel(spot, ds, raw){
+function computeDayModel(spot, ds, raw, when = state.when){
   const wx = raw.weather;
   if(!wx || !wx.hourly || !wx.daily) return null;
   const dailyIdx = wx.daily.time.indexOf(ds);
@@ -1346,21 +1346,15 @@ function computeDayModel(spot, ds, raw){
   const sunset  = parseCT(wx.daily.sunset[dailyIdx]);
 
   /* ---- Tide ---- */
-  const {dayHilo, dayCurve, curveSynthesized} = tideDayCurve(raw, ds);
+  // The tide curve, moon and solunar periods are the same for every hour of a day, and the
+  // best-hours search asks for 24 hours at once, so they are worked out once per day.
+  const perDay = (raw.perDay = raw.perDay || {});
+  const day = perDay[ds] || (perDay[ds] = {tide: tideDayCurve(raw, ds)});
+  const {dayHilo, dayCurve, curveSynthesized} = day.tide;
   if(!dayCurve.length && !dayHilo.length) return null;
 
   const heights = dayCurve.length>=2 ? dayCurve.map(h=>h.v) : dayHilo.map(h=>h.v);
   const range = heights.length ? Math.max(...heights) - Math.min(...heights) : 0;
-
-  const dawnWin = sunrise ? [+sunrise-90*60000, +sunrise+90*60000] : null;
-  const duskWin = sunset  ? [+sunset-90*60000,  +sunset+90*60000]  : null;
-  let extremaNear = 0;
-  const nearTurns = [];
-  dayHilo.forEach(ex=>{
-    const inDawn = dawnWin && ex.ms>=dawnWin[0] && ex.ms<=dawnWin[1];
-    const inDusk = duskWin && ex.ms>=duskWin[0] && ex.ms<=duskWin[1];
-    if(inDawn || inDusk){ extremaNear++; nearTurns.push({ex, when: inDawn?"dawn":"dusk"}); }
-  });
 
   /* ---- Weather, 24 h from local midnight ---- */
   const winds=[], gusts=[], press=[], precip=[], temps=[], clouds=[];
@@ -1420,26 +1414,12 @@ function computeDayModel(spot, ds, raw){
   }
 
   /* ---- Moon / solunar ---- */
-  const moon = moonIllumination(new Date(dayStartMs + 12*3600000));
-  const sol = solunarWindows(ds, spot.lat, spot.lon);
-  let majorHits=0, minorHits=0;
-  const hitWindows=[];
-  const checkHit = (win, kind) => {
-    const [s,e] = win;
-    let when = null;
-    if(dawnWin && rangesOverlap(+s,+e,dawnWin[0],dawnWin[1])) when="dawn";
-    else if(duskWin && rangesOverlap(+s,+e,duskWin[0],duskWin[1])) when="dusk";
-    if(when){
-      if(kind==="major") majorHits++; else minorHits++;
-      hitWindows.push({s,e,kind,when});
-    }
-  };
-  sol.majors.forEach(w=>checkHit(w,"major"));
-  sol.minors.forEach(w=>checkHit(w,"minor"));
+  const moon = day.moon || (day.moon = moonIllumination(new Date(dayStartMs + 12*3600000)));
+  const sol = day.sol || (day.sol = solunarWindows(ds, spot.lat, spot.lon));
 
   /* ---- Score ---- */
   const hasMarine = waveFt!=null && (spot.types.includes("surf")||spot.types.includes("offshore"));
-  const scoreWins = scoringWindows(state.when, dayStartMs);
+  const scoreWins = scoringWindows(when, dayStartMs);
   // Wind for the scored time: the day's average, or just the chosen hour.
   let swx=0, swy=0; const sWinds=[];
   for(let i=0;i<24;i++){
@@ -1492,29 +1472,6 @@ function computeDayModel(spot, ds, raw){
   breakdown.push(["Slack-water holes",holeS,10]);
   const total = Math.round(Math.max(0,Math.min(100, breakdown.reduce((t,[,v])=>t+v,0))));
 
-  /* ---- Best window ---- */
-  const candidates = [];
-  hitWindows.forEach(h=>candidates.push({
-    rank: h.kind==="major"?4:3, s:h.s, e:h.e,
-    text:`${fmtTime(h.s)}–${fmtTime(h.e)} — ${h.kind} solunar period landing on ${h.when}`
-      + (extremaNear>0 ? ", with a tide turn in the same window." : ".")
-  }));
-  nearTurns.forEach(({ex,when})=>candidates.push({
-    rank:3.5, s:new Date(ex.ms-45*60000), e:new Date(ex.ms+45*60000),
-    text:`${fmtTime(new Date(ex.ms-45*60000))}–${fmtTime(new Date(ex.ms+45*60000))} — ${ex.type==="H"?"high":"low"} tide turning at ${when}, the strongest movement of the day.`
-  }));
-  sol.majors.forEach(([s,e])=>candidates.push({
-    rank:2, s, e, text:`${fmtTime(s)}–${fmtTime(e)} — major solunar period. No dawn or dusk overlap today, so treat it as the mid-day option.`
-  }));
-  if(dayHilo.length) candidates.push({
-    rank:1, s:new Date(dayHilo[0].ms-45*60000), e:new Date(dayHilo[0].ms+45*60000),
-    text:`Around ${fmtTime(new Date(dayHilo[0].ms))} on the ${dayHilo[0].type==="H"?"high":"low"} turn — the closest thing to a defined bite window today.`
-  });
-  candidates.sort((a,b)=>b.rank-a.rank || a.s-b.s);
-  const windowText = candidates.length
-    ? candidates[0].text
-    : "No standout window — fishable, but conditions run fairly even all day.";
-
   const flags = [];
   if(pressureTrend < -4) flags.push({kind:"front", label:"Front", title:`Pressure falling ${Math.abs(pressureTrend).toFixed(1)} mb/day`});
   if(windAvg > 22) flags.push({kind:"blown", label:"Blown out", title:`Averaging ${Math.round(windAvg)} mph all day`});
@@ -1531,10 +1488,10 @@ function computeDayModel(spot, ds, raw){
     currentDay: useCur ? curDay : null,
     scoreWins,
     scoreWind:{mph: scoreWindMph, dir: scoreWindDir},
-    tide:{range, dayCurve, dayHilo, extremaNear},
+    tide:{range, dayCurve, dayHilo},
     weather:{windAvg, windDirAvg, gustMax, pressureTrend, precipAvg, tempHi, tempLo, cloudAvg},
     marine:{waveFt, periodS, waterF},
-    moon, sol, sunrise, sunset, windowText, station: raw.stationInfo
+    moon, sol, sunrise, sunset, station: raw.stationInfo
   };
 }
 
@@ -1858,6 +1815,38 @@ function renderDayTabs(){
   }).join("");
 }
 
+// The best stretch of the day by the app's own score, hour by hour: the top hour plus
+// any neighbours within 3 points. Computed only when shown, then cached per spot and day.
+function bestHours(spot, ds){
+  const sd = state.spotData[spot.id];
+  if(!sd || !sd.raw) return null;
+  sd.best = sd.best || {};
+  if(ds in sd.best) return sd.best[ds];
+  const hourly = [];
+  for(let h=0;h<24;h++){
+    const m = computeDayModel(spot, ds, sd.raw, h);
+    hourly.push(m ? m.total : null);
+  }
+  const valid = hourly.filter(v=>v!=null);
+  if(!valid.length) return (sd.best[ds] = null);
+  const top = Math.max(...valid), peak = hourly.indexOf(top);
+  let a = peak, b = peak;
+  while(a>0 && hourly[a-1]!=null && hourly[a-1]>=top-3) a--;
+  while(b<23 && hourly[b+1]!=null && hourly[b+1]>=top-3) b++;
+  return (sd.best[ds] = {start:a, end:b+1, score:top, peak, hourly, model: computeDayModel(spot, ds, sd.raw, peak)});
+}
+const hourLabel = h => { h = h%24; return h===0 ? "12 AM" : h<12 ? `${h} AM` : h===12 ? "12 PM" : `${h-12} PM`; };
+const hoursRange = b => `${hourLabel(b.start)}–${hourLabel(b.end)}`;
+function bestHoursText(b){
+  if(!b) return "No hourly data for this day.";
+  const m = b.model, w = m.why, reasons = [];
+  const seg = w.flow.bait.scored[0];
+  if(seg) reasons.push(seg.dir==="slack" ? "slack water" : `bait ${BAIT_WORDS[seg.dir]} at ${seg.peak.toFixed(seg.peak<1?2:1)} ${w.flow.bait.unit}`);
+  reasons.push(`${w.exposure.label} from the ${Math.round(m.scoreWind.mph)} mph ${windCompassLabel(m.scoreWind.dir)} wind`);
+  if(w.hole.bonus>0.5) reasons.push(`slack over deep water ${w.hole.depth.dist} m ${w.hole.depth.dir}`);
+  return `${hoursRange(b)} (score ${b.score} at ${hourLabel(b.peak)}): ${reasons.join(", ")}.`;
+}
+
 function renderTopPick(){
   const host = document.getElementById("topPick");
   const ds = DAYS[state.dayIndex];
@@ -1871,7 +1860,7 @@ function renderTopPick(){
     <div class="tpmain">
       <span class="tpeyebrow">Best bet ${esc(dayLabel)}</span>
       <div class="tpname">${esc(top.spot.name)}</div>
-      <div class="tpline">${esc(top.model.windowText.includes(" — ") ? top.model.windowText.split(" — ")[0] : "No standout window")} · then ${esc(runners)}</div>
+      <div class="tpline">${(b=>b ? "Best "+esc(hoursRange(b)) : "No hourly data")(bestHours(top.spot, ds))} · then ${esc(runners)}</div>
     </div>
   </div>`;
 }
@@ -1949,8 +1938,8 @@ function renderDetail(spot, m){
 
   return `
     <div class="bestwindow">
-      <span class="eyebrow">Best window</span>
-      <span class="windowmsg">${esc(m.windowText)}</span><br>
+      <span class="eyebrow">Best hours</span>
+      <span class="windowmsg">${esc(bestHoursText(bestHours(spot, m.ds)))}</span><br>
       <b>Sunrise ${fmtTime(m.sunrise)} · Sunset ${fmtTime(m.sunset)}</b>
     </div>
     <div class="panelgrid">
