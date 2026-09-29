@@ -100,9 +100,9 @@ if (s0 < 0 || s1 <= s0) {
 }
 const sc = {};
 new Function('exports', 'norm360', 'mean', html.slice(s0, s1) +
-  '\nObject.assign(exports,{upwindFetch,exposureLabel,windExposureScore25,levelSamples,flowFraction,baitFlowScore25,windowSpeed,baitSegments,scoringWindows,currentScore25,usualPeak});')(
+  '\nObject.assign(exports,{upwindFetch,exposureLabel,windExposureScore25,levelSamples,flowFraction,baitFlowScore25,windowSpeed,baitSegments,scoringWindows,currentScore25,usualPeak,slackFraction,holeValue,slackHoleBonus10});')(
   sc, ctx.norm360, a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-const { upwindFetch, exposureLabel, windExposureScore25, levelSamples, flowFraction, baitFlowScore25, windowSpeed, baitSegments, scoringWindows, currentScore25, usualPeak } = sc;
+const { upwindFetch, exposureLabel, windExposureScore25, levelSamples, flowFraction, baitFlowScore25, windowSpeed, baitSegments, scoringWindows, currentScore25, usualPeak, slackFraction, holeValue, slackHoleBonus10 } = sc;
 const L = c => levelSamples(c), TH = 0.08;
 
 // Fetch: open to the east (10 mi), bank to the west (0).
@@ -169,6 +169,17 @@ const halfHourly = Array.from({ length: 48 }, (_, i) => ({ ms: DAY0 + i * HR / 2
 ok('scoring 3 PM sees only the afternoon ebb',
    flowFraction(halfHourly, scoringWindows(15, DAY0), 'outgoing', 0.1) === 1 &&
    flowFraction(halfHourly, scoringWindows(15, DAY0), 'incoming', 0.1) === 0);
+
+// Slack-water holes
+const mixed = Array.from({ length: 8 }, (_, i) => ({ ms: T0 + i * HR, s: i < 2 ? 0.02 : 0.8 }));
+ok('slack share: 2 of 8 samples slack = 25%', slackFraction(mixed, win, 0.1) === 0.25);
+ok('hole value: under 1 ft of relief is nothing', holeValue({ relief: 0.8 }) === 0);
+ok('hole value: 3 ft is half, 5 ft is full', holeValue({ relief: 3 }) === 0.5 && holeValue({ relief: 5 }) === 1);
+ok('hole value: a 40 ft channel counts no more than 5 ft', holeValue({ relief: 40 }) === 1);
+ok('hole value: no depth data is nothing', holeValue(null) === 0);
+ok('bonus: full hole, all slack = 10', slackHoleBonus10(1, { relief: 6 }) === 10);
+ok('bonus: full hole, no slack = 0', slackHoleBonus10(0, { relief: 6 }) === 0);
+ok('bonus: unknown slack share = 0', slackHoleBonus10(null, { relief: 6 }) === 0);
 
 console.log(fails ? '\n' + fails + ' check(s) FAILED\n' : '\nAll checks passed.\n');
 process.exit(fails ? 1 : 0);

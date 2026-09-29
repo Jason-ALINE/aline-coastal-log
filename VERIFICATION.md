@@ -240,3 +240,18 @@ Limitations:
   (Laguna Madre relation 5121863) shows the shore running about 100°/280° with open water
   to the N-NNE; Port Isabel High School is about 420 m south, across TX 100. The map
   measurement stands: SE winds are mostly blocked.
+
+## Addendum — Slack-water hole bonus from NOAA depth (2026-09-29)
+
+- NCEI DEM_all ImageServer identify returned CUDEM 1/9 arc-second tiles
+  (ncei19_n26X25_w097X25_2020v1 around Port Isabel, ncei19_n29x50_w094x75_2021v2 at
+  Galveston). getSamples took 441 points in about 0.6 s.
+- Spot checks: Laguna flats 0.3-3 ft; ICW spots 9-13 ft (project depth 12 ft); Brazos
+  Santiago Pass 40-52 ft (ship channel). Port Mansfield has no water within 300 m of its
+  coordinates and gets no bonus. Pirates Landing, High School Shoreline and Port Aransas
+  sit on the bank; the typical and deep values come from the water around them.
+- Browser check, Wednesday 2-3 AM (live): Turning Basin fully slack, 28.7 ft relief ->
+  10 / 10 bonus; Bridgepoint (2.6 ft relief) earns 0 because its water is moving; Holly
+  Beach (0.3 ft) is flagged as no hole. Whole-day bonuses stay small (0-1 pt) because
+  slack is a small share of a day.
+- 8 new unit checks for slack share, hole value and the bonus.
