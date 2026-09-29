@@ -142,3 +142,13 @@ Limitations:
   hotspot table, so no atlas data was loaded.
 - **The causeway's tide is a reconstructed curve** (hilo-only station 8779739), and
   has no phase preference, so phase does not apply there.
+
+## Addendum — Causeway spot moved to atlas GPS (2026-09-29)
+
+- The causeway spot now uses Pirates Landing Pier from the *Texas Lakes & Bays Fishing
+  Atlas* 2025-26, p.222 facilities table: N 26 04.734, W 97 12.402 (26.0789, -97.2067).
+- Its nearest NOAA station is still 8779739 (about 1.1 mi, vs 1.3 mi to 8779770), so
+  its tide source did not change.
+- Port Isabel Shoreline is still a NOAA station position. Page 222 holds the map and
+  facilities only. The GPS table for its numbered hotspots is on another page, which
+  has not been supplied yet.

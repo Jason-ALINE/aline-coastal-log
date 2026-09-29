@@ -65,8 +65,9 @@ phase: "incoming"                                          // or "outgoing"
 (Isla Blanca Jetties, Boca Chica, Port Isabel Shoreline, Queen Isabella Causeway)
 were tagged from coastline geometry and general practice (jetties on the make, bay
 shorelines on the fall), not from the atlas. Review them, and add the two fields to
-any other spot to opt it in. Port Isabel-area coordinates for the two new spots are
-NOAA station positions, to be replaced by real hotspot GPS.
+any other spot to opt it in. The causeway spot sits at Pirates Landing Pier, using GPS
+from the atlas p.222 facilities table. Port Isabel Shoreline is still a NOAA station
+position, to be replaced by real hotspot GPS.
 
 Two signals sit **outside** the score, because they're go/no-go calls rather than
 gradients: `FRONT` (pressure falling faster than 4 mb/day) and `BLOWN OUT`
