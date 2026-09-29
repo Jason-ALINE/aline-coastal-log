@@ -163,3 +163,28 @@ Limitations:
   still resolves to 8779739 (1.06 mi).
 - Both Port Isabel bay spots now use atlas GPS. The wind tags (exposed E/SE,
   sheltered SW/W/NW) were confirmed by the user: the shoreline faces east/southeast.
+
+## Addendum — All Port Isabel-area atlas hotspots added (2026-09-29)
+
+- Every hotspot in the atlas p.223 tables (map p.222) is in: redfish 69-78, trout
+  80-93, flounder 40-46, snook 7-15, and Best Bank & Wade 1-10. That is 50 hotspots:
+  47 in 39 new `pi-*` spots, plus 3 attached to the existing shoreline and
+  causeway spots. Arroyo Colorado (pp.220-221) is not included.
+- Snook 7-10 (Texaco Channel, High School Shoreline, South Side of Bridge, Old Queen
+  Isabella Causeway): the table header is cropped in the photo. The species comes from
+  key colour and numbering (snook 1-6 are on p.221, 11-15 on p.223).
+- Printed "118/4 oz" jig head sizes were read as 1/8-1/4 oz.
+- Checked in code: 55 spots, 0 duplicate ids, and all Port Isabel spots fall inside
+  26.0-26.19 N, 97.14-97.31 W.
+- Checked live (2026-09-29): Open-Meteo weather and marine batch calls with all 55
+  coordinates returned 200 with 55 locations each (URL about 1.06 KB). The four newly
+  used NOAA stations (8779280 Realitos Peninsula, 8779749 Brazos Santiago Pass,
+  8779750 Padre Island south end, 8779748 SPI C.G. Station) return hilo predictions.
+- Airport Cove resolves to 8779280 Realitos Peninsula (6.4 mi north), not Port
+  Isabel. It is still the closest prediction station. The Holly Beach and Laguna
+  Vista spots use Port Isabel 8779770 at 4.4-7.8 mi.
+- Browser check: with the Port Isabel filter on, all 43 rows scored with no error
+  rows, and the Atlas hotspots panel renders in the detail view.
+- No wind/phase tags on the new spots. Two atlas notes mention tide: Airport Cove
+  (trout: "wade mouth on outgoing tide") and Laguna Vista Cove (redfish: "cove mouth
+  outgoing tide, back incoming"). These are not applied.

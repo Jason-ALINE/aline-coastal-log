@@ -249,6 +249,11 @@
     text-transform:uppercase;letter-spacing:.03em;padding:10px 14px;
   }
   .panelbody{padding:14px;}
+  .atlasrow{padding:8px 0;border-top:1px solid var(--line-soft);}
+  .panelmeta + .atlasrow{border-top:none;padding-top:0;}
+  .atlashead{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:var(--slate);}
+  .atlashead span:first-child{color:var(--ink);font-weight:600;}
+  .atlastactic{font-size:14px;color:var(--ink-soft);margin-top:3px;}
   .panelmeta{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:var(--slate);margin:-2px 0 10px;}
 
   .statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:12px 10px;}
@@ -455,6 +460,116 @@ const SPOTS = [
   {id:"causeway", name:"Queen Isabella Causeway (west end) / Pirates Landing Pier", region:"Lower", area:"Port Isabel", lat:26.0789, lon:-97.2067, types:["bay"],
     wind:{exposed:["E","SE"], sheltered:[]}},
 ];
+
+/* Port Isabel-area hotspots from the Texas Lakes & Bays Fishing Atlas 2025-26, p.223 tables
+   (map p.222). GPS is typed as printed (degrees, decimal minutes) and converted below.
+   Hotspots at the same spot (same GPS, or same name within ~0.5 mi) share one entry.
+   Snook 7-10: the table header is cropped in the photo; species inferred from key colour/numbering.
+   No wind/phase tags: these score like any untagged spot until someone tags them. */
+const ATLAS_PI = [
+  // [id, name, types, [[label, "N dd mm.mmm", "W dd mm.mmm", grid, tactic], ...]]  first row sets the spot position
+  ["pi-airportcove", "Airport Cove", ["bay"], [
+    ["Redfish 69", "26 10.226", "97 18.012", "C9", "Live finger mullet, skip the surface with no weight; All year, dawn thru midday"],
+    ["Trout 81", "26 10.226", "97 18.012", "C9", "Red/black topwaters, live bait, wade mouth on outgoing tide; Jan-Mar, Jun-Sep, dawn-midday"],
+    ["Wade 1", "26 10.199", "97 18.083", "C9", "Trout & redfish, soft plastics with 1/4-1/8 oz jig heads; March thru November"]]],
+  ["pi-drumboats", "East of Drum Boats / S. Padre Island (north end)", ["bay"], [
+    ["Redfish 70", "26 10.713", "97 11.107", "G9", "Live finger mullet, 3-4\" topwaters, wade or drift; Mar-Nov, dawn thru afternoon"],
+    ["Wade 2", "26 10.713", "97 11.107", "G9", "Trout & redfish, soft plastics with 1/4-1/8 oz jig heads; March thru November"]]],
+  ["pi-colorchange", "Color Change", ["bay"], [
+    ["Trout 80", "26 10.428", "97 12.762", "F9", "Live shrimp, topwaters, soft plastics. Fish the murkier water; Apr-Sep, dawn thru midday"]]],
+  ["pi-baysideisland", "Bay Side of Island", ["bay"], [
+    ["Redfish 71", "26 09.132", "97 11.340", "G8", "Pull gold spoon on plane even with the water & grass; Jun-Sep, dawn, dusk"]]],
+  ["pi-marker97", "Spoils at Marker 97", ["bay"], [
+    ["Trout 84", "26 09.242", "97 14.573", "E8", "Cut bait, live shrimp, anchor between spoils @ night; May-Oct, dawn-midday, night"]]],
+  ["pi-longbar", "Long Bar", ["bay"], [
+    ["Trout 85", "26 08.902", "97 14.352", "E8", "Live shrimp, pinfish, red/wht. plastics, drift the area; All year, dawn thru dusk"]]],
+  ["pi-longbaricw", "Long Bar @ ICW Edge", ["bay"], [
+    ["Redfish 72", "26 08.349", "97 14.144", "E7", "Live finger mullet, soft plastics w 1/8-1/4 oz jig heads; All year, dawn thru midday"]]],
+  ["pi-shrimpfarm", "Front of Shrimp Farm", ["bay"], [
+    ["Wade 3", "26 08.780", "97 17.824", "C8", "Trout & redfish, soft plastics, topwaters, gold spoons; March thru November"]]],
+  ["pi-hollyislands", "Islands at Holly Beach", ["bay"], [
+    ["Trout 82", "26 08.839", "97 16.377", "C8", "Live shrimp under cork, drift, best after cold front; Mar-Sep, dawn, midday, dusk"]]],
+  ["pi-hollybeach", "Holly Beach", ["bay"], [
+    ["Redfish 73", "26 08.392", "97 17.257", "C7", "Live bait, spoons, wade/drift in 2-3', work mouth w tide; Mar-Nov, dawn thru midday"],
+    ["Trout 83", "26 08.392", "97 17.257", "C7", "Topwaters early, firetiger plastics, best after cold front; May-Nov, dawn thru afternoon"],
+    ["Wade 4", "26 08.190", "97 17.507", "C7", "Trout & redfish, soft plastics, spoons, topwaters; March thru November"]]],
+  ["pi-bowiepark", "Bowie Park", ["bay"], [
+    ["Trout 86", "26 08.198", "97 10.843", "G7", "Freeline croaker or ballyhoo, best after cold front, drift; Mar-Sep, dawn, dusk"]]],
+  ["pi-baysidefingers", "Bayside Fingers", ["bay"], [
+    ["Flounder 41", "26 07.735", "97 10.497", "G7", "Jig minnow slowly off bottom, count 5 before setting hook; Jun-Oct, dawn thru dusk"]]],
+  ["pi-texaco", "Texaco Channel", ["bay"], [
+    ["Snook 7", "26 07.424", "97 16.638", "C7", "Large live shrimp on slip shot leader, fish edges; May-Nov, morning-afternoon"]]],
+  ["pi-lvcove", "Laguna Vista Cove", ["bay"], [
+    ["Redfish 74", "26 07.211", "97 17.767", "C6", "Live finger mullet, fish cove mouth outgoing tide, back incoming; Mar-Apr, Jun-Nov, morn-midday"],
+    ["Wade 5", "26 07.343", "97 17.782", "C6", "Trout & redfish, soft plastics with 1/4-1/8 oz jig heads; March thru November"]]],
+  ["pi-lomagrulla", "Loma de la Grulla", ["bay"], [
+    ["Flounder 40", "26 07.139", "97 16.931", "C6", "Live shrimp, finger mullet, drift between shore & spoils; Jul-Oct, morning thru afternoon"]]],
+  ["pi-parallelbar", "Parallel Bar", ["bay"], [
+    ["Redfish 76", "26 06.572", "97 13.122", "F6", "Live shrimp, mullet, drift on bar high tide, between low; Mar-Nov, dawn thru afternoon"]]],
+  ["pi-westspoil", "West of Spoil Area", ["bay"], [
+    ["Trout 87", "26 05.934", "97 12.979", "F5", "Jig on bottom, pop Mauler and allow to sit straight up; Mar-Sep, dawn, dusk"]]],
+  ["pi-sh100fm510", "SH100 / FM 510 Interchange", ["bay"], [
+    ["Redfish 75", "26 05.793", "97 16.829", "C5", "Live bait, spoons, wade/drift shore, fish canal openings; Jun-Dec, morning thru midday"]]],
+  ["pi-lvhwy100", "Laguna Vista along Hwy. 100", ["bay"], [
+    ["Wade 6", "26 05.553", "97 16.717", "C5", "Trout & redfish, live shrimp or finger mullet under cork; March thru November"]]],
+  ["pi-hwy100drop", "Highway 100 Dropoff", ["bay"], [
+    ["Wade 7", "26 05.522", "97 16.656", "D5", "Live shrimp under pop-n cork; pop hard, wait for strike; Apr-Sep, dawn, dusk"]]],
+  ["pi-bridgepoint", "Bridgepoint Channel", ["bay"], [
+    ["Flounder 43", "26 05.306", "97 10.140", "H5", "Jig minnow slowly off bottom, count 5 before setting hook; Jun-Sep, dawn-morn, night"]]],
+  ["pi-icwedge", "Edge of Intracoastal", ["bay"], [
+    ["Flounder 42", "26 05.128", "97 12.287", "F5", "Jig minnow slowly off bottom, count 5 before setting hook; Jun-Aug, dawn-am, dusk-night"]]],
+  ["pi-newcauseway", "New Causeway (N or S side)", ["bay"], [
+    ["Wade 8", "26 05.088", "97 10.353", "H5", "Trout, redfish, snook & flounder, live bait, soft plastics; May thru November"]]],
+  ["pi-oldcauseway", "Old Queen Isabella Causeway", ["bay"], [
+    ["Snook 10", "26 04.380", "97 10.947", "G4", "Live shrimp, finger mullet, fish piling and shade; May-Nov, morning-afternoon"]]],
+  ["pi-coastguard", "Coast Guard Station (S. side)", ["bay"], [
+    ["Wade 9", "26 04.360", "97 10.031", "H4", "Trout, redfish, snook, flounder & sheepshead, live bait; May thru November"]]],
+  ["pi-northjetties", "North of Jetties", ["surf"], [
+    ["Snook 11", "26 04.143", "97 09.081", "H4", "Finger mullet, shrimp, fish rocks with moving tides; May-Nov, morning-afternoon"]]],
+  ["pi-railbed", "Railbed", ["bay"], [
+    ["Flounder 44", "26 03.830", "97 09.920", "G4", "Mud minnows, finger mullet, fish bed stones on bottom; Jun-Sep, morning thru midday"]]],
+  ["pi-turningbasin", "Turning Basin / Barracuda Cove", ["bay"], [
+    ["Trout 89", "26 03.761", "97 09.482", "H4", "Live shrimp, shad tails, fish dropoffs after cold front; Jan-Dec, morning-midday"],
+    ["Snook 12", "26 03.761", "97 09.482", "H4", "Soft plastics w 1/8-1/4 oz jig heads, anchor or drift cove; May-Nov, morning-afternoon"]]],
+  ["pi-mexequita", "Mexequita Flats", ["bay"], [
+    ["Trout 90", "26 03.668", "97 11.409", "G4", "Mansfield Mauler, 1/8-1/4 oz jig head, drift with wind; Apr-Oct, dawn, dusk"],
+    ["Snook 13", "26 03.414", "97 11.773", "G4", "Soft plastics w 1/8-1/4 oz jig heads, anchor or drift flats; May-Nov, morning-afternoon"]]],
+  ["pi-delmar", "Del Mar Beach", ["surf"], [
+    ["Redfish 77", "26 03.388", "97 08.961", "H3", "Live/cut mullet, fish 1st/2nd gut, cast parallel to shore; Jun-Oct, dawn thru midday"]]],
+  ["pi-southbaypass", "South Bay Pass", ["bay"], [
+    ["Flounder 45", "26 02.889", "97 11.031", "G3", "Anchor @ edge of channel pt., look for wht. poles; Jul-Nov, avoid afternoon"]]],
+  ["pi-they", "The Y", ["bay"], [
+    ["Trout 91", "26 02.860", "97 12.430", "G3", "Bone topwaters, croaker, drift shorelines, cast to mangroves; Apr-Oct, morning thru midday"]]],
+  ["pi-southbaymouth", "Mouth of South Bay", ["bay"], [
+    ["Flounder 46", "26 02.583", "97 11.073", "G3", "Mud minnows, finger mullet, fish mouth with moving tides; Aug-Feb, dawn-morn, dusk-night"]]],
+  ["pi-southbaychannels", "South Bay Channels", ["bay"], [
+    ["Trout 92", "26 02.435", "97 11.011", "G3", "Live shrimp, pinfish, red/wht. plastics, drift the area; All year, dawn thru dusk"]]],
+  ["pi-southbaymangroves", "Mangroves in South Bay", ["bay"], [
+    ["Snook 14", "26 02.420", "97 10.476", "G3", "Live bait w cork, work top slow, work plastics quickly; May-Jun, Sep-Oct, dawn, dusk"]]],
+  ["pi-southbay", "South Bay", ["bay"], [
+    ["Trout 93", "26 01.707", "97 10.613", "G3", "Topwaters early, anchor w soft plastics later in day; Mar-Sep, dawn, dusk"]]],
+  ["pi-southbayse", "South Bay (SE corner)", ["bay"], [
+    ["Wade 10", "26 01.503", "97 10.174", "H2", "Trout, redfish & snook; live shrimp, soft plastics; March thru November"]]],
+  ["pi-tabletop", "South Bay East Table Top", ["bay"], [
+    ["Redfish 78", "26 01.431", "97 11.089", "G2", "Live finger mullet, 3-4\" topwaters, wade or drift; Mar-Nov, morning thru afternoon"]]],
+  ["pi-westsouthbay", "West South Bay Mangroves", ["bay"], [
+    ["Snook 15", "26 01.122", "97 11.049", "G2", "Cast bait/lure to mangroves, same strategy as #14; May-Jun, Sep-Oct, dawn, dusk"]]],
+];
+// Atlas hotspots that sit on spots already listed above.
+const ATLAS_PI_EXTRA = {
+  portisabel: [
+    ["Snook 8", "26 04.830", "97 14.870", "E5", "Bone topwaters, park on Highway 100 and wade shore; Apr-Jul, dawn thru dusk"],
+    ["Trout 88", "26 04.830", "97 14.870", "E5", "Soft plastics shrimp tails, live bait, drift/wade dropoff; Apr-Oct, dawn thru dusk"]],
+  causeway: [
+    ["Snook 9 (South Side of Bridge)", "26 04.677", "97 12.287", "F5", "Live shrimp, 3\" Gulp shrimp, bounce off bottom slowly; May-Jun, Sep-Oct, dawn, dusk"]],
+};
+function dmToDeg(dm){ const [d,m] = dm.split(" ").map(Number); return d + m/60; }
+const atlasRows = rows => rows.map(([label,lat,lon,grid,tactic])=>({label, gps:`N ${lat}, W ${lon}`, grid:`222/${grid}`, tactic}));
+ATLAS_PI.forEach(([id,name,types,rows])=>{
+  SPOTS.push({id, name, region:"Lower", area:"Port Isabel",
+    lat:+dmToDeg(rows[0][1]).toFixed(4), lon:-dmToDeg(rows[0][2]).toFixed(4), types, atlas:atlasRows(rows)});
+});
+SPOTS.forEach(s=>{ if(ATLAS_PI_EXTRA[s.id]) s.atlas = atlasRows(ATLAS_PI_EXTRA[s.id]); });
 
 /* ============================== GEO / DATE UTILS ============================== */
 function haversineMiles(lat1,lon1,lat2,lon2){
@@ -1475,6 +1590,13 @@ function renderDetail(spot, m){
           </div>
         </div>
       </div>
+      ${spot.atlas ? `<div class="panel wide">
+        <div class="panelhead">Atlas hotspots</div>
+        <div class="panelbody">
+          <div class="panelmeta">Texas Lakes &amp; Bays Fishing Atlas 2025-26, p.223</div>
+          ${spot.atlas.map(a=>`<div class="atlasrow"><div class="atlashead"><span>${esc(a.label)}</span><span>${esc(a.gps)} · ${esc(a.grid)}</span></div><div class="atlastactic">${esc(a.tactic)}</div></div>`).join("")}
+        </div>
+      </div>` : ""}
     </div>`;
 }
 

@@ -1,8 +1,15 @@
 # Coastal Log
 
-Fishing conditions for 16 spots on the Texas Gulf Coast, scored 0–100 from live
-tide, weather, marine, and lunar data. Four of them are around Port Isabel and
+Fishing conditions for 55 spots on the Texas Gulf Coast, scored 0–100 from live
+tide, weather, marine, and lunar data. 43 of them are around Port Isabel and
 have a **Port Isabel** filter chip.
+
+The 39 `pi-*` spots are the Lower Laguna Madre hotspots from the *Texas Lakes &
+Bays Fishing Atlas* 2025-26 (tables p.223, map p.222), in `ATLAS_PI` in
+`index.html`. GPS is typed as printed and converted in code. Hotspots with the
+same GPS, or the same name within about half a mile, share one spot. Each spot's
+detail view has an **Atlas hotspots** panel with the atlas key, GPS, grid and
+bait/tactic notes. These spots have no wind or phase tags yet.
 
 One self-contained HTML file. No build step, no dependencies, no server — open
 `index.html` in a browser and it fetches everything it needs.
@@ -93,7 +100,7 @@ horizontal parallax and refraction. Expect a few minutes of error — not
 navigation-grade, but far better than the single-term approximation it replaced.
 
 **Open-Meteo is called with comma-joined coordinates**, which returns one object
-per location and turns 28 requests into 2. `fetchGridBatched()` falls back to
+per location and turns 110 requests into 2. `fetchGridBatched()` falls back to
 per-spot requests if the batched call is rejected or comes back the wrong shape.
 
 **Tide data is fetched per station, not per spot** — nearby spots share a NOAA
