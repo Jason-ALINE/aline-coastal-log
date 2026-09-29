@@ -100,9 +100,9 @@ if (s0 < 0 || s1 <= s0) {
 }
 const sc = {};
 new Function('exports', 'norm360', 'mean', html.slice(s0, s1) +
-  '\nObject.assign(exports,{upwindFetch,exposureLabel,windExposureScore25,levelSamples,flowFraction,baitFlowScore25,windowSpeed,baitSegments,fishingWindows,currentScore25,usualPeak});')(
+  '\nObject.assign(exports,{upwindFetch,exposureLabel,windExposureScore25,levelSamples,flowFraction,baitFlowScore25,windowSpeed,baitSegments,scoringWindows,currentScore25,usualPeak});')(
   sc, ctx.norm360, a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-const { upwindFetch, exposureLabel, windExposureScore25, levelSamples, flowFraction, baitFlowScore25, windowSpeed, baitSegments, fishingWindows, currentScore25, usualPeak } = sc;
+const { upwindFetch, exposureLabel, windExposureScore25, levelSamples, flowFraction, baitFlowScore25, windowSpeed, baitSegments, scoringWindows, currentScore25, usualPeak } = sc;
 const L = c => levelSamples(c), TH = 0.08;
 
 // Fetch: open to the east (10 mi), bank to the west (0).
@@ -157,16 +157,18 @@ const longSlack = baitSegments(k12(i => i < 3 ? 0.8 : i < 9 ? 0 : -0.8), [[T0, T
 ok('bait timeline: a long slack is listed', longSlack.map(x => x.dir).join(',') === 'in,slack,out', longSlack.map(x => x.dir).join(','));
 ok('bait timeline: no window gives nothing', baitSegments(k12(() => 1), [null], 0.1).length === 0);
 
-const DAY0 = Date.UTC(2026, 8, 30, 5), SR = new Date(DAY0 + 7 * HR), SS = new Date(DAY0 + 19 * HR);
-const allDay = fishingWindows('allday', SR, SS, DAY0);
-ok('all day: an hour before sunrise to sunset', allDay.windows[0][0] === +SR - HR && allDay.windows[0][1] === +SS);
-ok('all day: mornings count double', allDay.weight(DAY0 + 9 * HR) === 2 && allDay.weight(DAY0 + 15 * HR) === 1);
-ok('morning: ends at noon', fishingWindows('morning', SR, SS, DAY0).windows[0][1] === DAY0 + 12 * HR);
-ok('dawn & dusk: two 3-hour windows', fishingWindows('dawndusk', SR, SS, DAY0).windows.length === 2);
-// In at 1 kt all morning, out at 1 kt all afternoon: morning weight makes "incoming" win 2:1.
+const DAY0 = Date.UTC(2026, 8, 30, 5);
+const whole = scoringWindows('day', DAY0);
+ok('whole day: midnight to midnight, one window', whole.length === 1 && whole[0][0] === DAY0 && whole[0][1] === DAY0 + 24 * HR);
+ok('one hour: 7 AM is 7:00-8:00', scoringWindows(7, DAY0)[0][0] === DAY0 + 7 * HR && scoringWindows(7, DAY0)[0][1] === DAY0 + 8 * HR);
+ok('out-of-range hour falls back to the whole day', scoringWindows(24, DAY0)[0][1] === DAY0 + 24 * HR);
+// In at 1 kt for 12 h, out at 1 kt for 12 h: no hour favoured, so exactly half is "incoming".
 const dayPts = Array.from({ length: 24 }, (_, i) => ({ ms: DAY0 + i * HR + HR / 2, s: i < 12 ? 1 : -1 }));
-const inShare = flowFraction(dayPts, allDay.windows, 'incoming', 0.1, allDay.weight);
-ok('morning weighting counts the morning flow double', inShare > 0.6 && inShare < 0.75, inShare.toFixed(2));
+ok('every hour counts equally (12 h in, 12 h out = 50%)', flowFraction(dayPts, whole, 'incoming', 0.1) === 0.5);
+const halfHourly = Array.from({ length: 48 }, (_, i) => ({ ms: DAY0 + i * HR / 2, s: i < 24 ? 1 : -1 }));
+ok('scoring 3 PM sees only the afternoon ebb',
+   flowFraction(halfHourly, scoringWindows(15, DAY0), 'outgoing', 0.1) === 1 &&
+   flowFraction(halfHourly, scoringWindows(15, DAY0), 'incoming', 0.1) === 0);
 
 console.log(fails ? '\n' + fails + ' check(s) FAILED\n' : '\nAll checks passed.\n');
 process.exit(fails ? 1 : 0);

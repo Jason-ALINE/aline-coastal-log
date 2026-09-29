@@ -39,13 +39,12 @@ No API keys. Nothing is sent anywhere except those three requests.
 
 ## How the score works
 
-Three questions carry 75 of the 100 points: is the spot protected from today's wind,
-is the water pushing bait in or pulling it out the way the spot needs, and how hard
-is the water moving. Bait and current are judged over the fishing hours chosen with
-the **Hours** buttons (saved per browser): **All day** (default: an hour before
-sunrise to sunset, samples before noon weighted double), **Morning** (an hour
-before sunrise to noon) or **Dawn & dusk** (sunrise and sunset ±90 min). The sun only
-sets which hours count; direction always comes from the tide and current. Bay-only spots have
+Three questions carry 75 of the 100 points: is the spot protected from the wind, is
+the water pushing bait in or pulling it out the way the spot needs, and how hard is
+the water moving. **The score favours no time of day.** It describes the selected
+day as a whole, every hour counted equally, or, if an hour is picked under **Time**,
+that hour alone: bait, current, solunar periods and the wind used for exposure all
+come from that hour. The app always opens on the whole day; the choice is not saved. Bay-only spots have
 no sea state, so the other parts scale up by 100/95.
 
 | Component | Points | Basis |
@@ -90,7 +89,7 @@ and current score in plain words.
 
 ### Pushed in or pulled out: NOAA current predictions
 
-Every row has a **Bait** line with the time ranges, inside the chosen hours, when
+Every row has a **Bait** line with the time ranges, inside the time being scored, when
 water flows in (bait pushed in), flows out (bait pulled out) or is slack, with ✓ when
 that is what the spot's role wants and ✗ when it is not. A slack spell under 45 min
 between two flows is the turn itself and is split between them. The detail view
