@@ -255,3 +255,25 @@ Limitations:
   Beach (0.3 ft) is flagged as no hole. Whole-day bonuses stay small (0-1 pt) because
   slack is a small share of a day.
 - 8 new unit checks for slack share, hole value and the bonus.
+
+## Addendum — Atlas GPS check and depth model vs nautical chart (2026-09-29)
+
+- Atlas grid squares vs GPS (50 hotspots, map p.222): every hotspot's latitude falls in
+  its stated row. Three column boundaries overlap by roughly 0.002-0.005 deg (about
+  100-500 m), consistent with a printed grid a few degrees off true north and with pins
+  drawn as offset icons. No transcription or atlas GPS error found.
+- NCEI elevation model vs NOAA ENC chart soundings (harbour, else approach scale) within
+  1 km of each spot: 26 spots agree (at least 75% of soundings within 3 ft), 14
+  conflict, 14 unchecked (fewer than 3 soundings), 1 no data. The worst area is a band
+  along the ICW near 26.10-26.15 N: at Long Bar, Marker 97, Parallel Bar and West of
+  Spoil the chart shows 1-3 ft where the model shows 11-33 ft. At Parallel Bar a 2021
+  sounding of 2 ft sits 52 m from a model value of 13.5 ft. Channel spots (Causeway,
+  ICW Edge, Railbed, Turning Basin) also conflict; part of that is surveys newer than
+  the model (as recent as 2026) and steep channel edges.
+- The hole bonus is now withheld where the model conflicts with the chart, and the spot
+  says why. The check runs inside `tools/compute-depth.js`, so it is redone whenever the
+  table is regenerated. Roles were not changed: the chart confirms Long Bar and
+  Parallel Bar are shallow, as their "flat" role assumes.
+- 5 m resampling at Texaco Channel and Highway 100 Dropoff found no channel or drop
+  within 150 m; Color Change reads a uniform 3.5 ft at all 2,821 points, which looks
+  interpolated rather than surveyed.

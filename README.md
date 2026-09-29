@@ -127,6 +127,13 @@ since it is only earned while bait flow and current score nothing, the total sta
 within 100 (and is clamped). NAVD88 sits close to mean water here, so depths read as
 roughly mid tide; the model is built from surveys up to about 2020, and holes shift.
 
+**The model is checked against the nautical chart.** For each spot the tool compares
+the model with every NOAA ENC chart sounding within 1 km. Where fewer than 75% agree
+within 3 ft the spot is marked `conflict` and earns no hole bonus: the chart is the
+surveyed record, and parts of the model in the Laguna Madre are plainly wrong (11-33 ft
+where the chart shows 1-3 ft along the ICW near 26.10-26.15 N). Spots with fewer than 3
+soundings nearby are `unchecked` and say so in the detail view.
+
 ### Current: why relative to the station
 
 Laguna Madre tides are often under a foot, while Gulf passes run several. Scoring

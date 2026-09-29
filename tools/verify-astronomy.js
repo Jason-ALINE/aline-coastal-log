@@ -177,6 +177,7 @@ ok('hole value: under 1 ft of relief is nothing', holeValue({ relief: 0.8 }) ===
 ok('hole value: 3 ft is half, 5 ft is full', holeValue({ relief: 3 }) === 0.5 && holeValue({ relief: 5 }) === 1);
 ok('hole value: a 40 ft channel counts no more than 5 ft', holeValue({ relief: 40 }) === 1);
 ok('hole value: no depth data is nothing', holeValue(null) === 0);
+ok('hole value: nothing where the model conflicts with the chart', holeValue({ relief: 6, check: 'conflict' }) === 0 && holeValue({ relief: 6, check: 'agrees' }) === 1);
 ok('bonus: full hole, all slack = 10', slackHoleBonus10(1, { relief: 6 }) === 10);
 ok('bonus: full hole, no slack = 0', slackHoleBonus10(0, { relief: 6 }) === 0);
 ok('bonus: unknown slack share = 0', slackHoleBonus10(null, { relief: 6 }) === 0);
