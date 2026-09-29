@@ -216,3 +216,27 @@ Limitations:
 - Browser check (live data): all 43 Port Isabel rows scored, exposure labels shown
   in the rows, and the detail view explains wind, bait flow and current in plain words.
 - Bait-flow roles in `SPOT_ROLES` are drafted and not yet reviewed by the user.
+
+## Addendum — NOAA currents, pushed in / pulled out, coordinates (2026-09-29)
+
+- NOAA current predictions (`currents_predictions`, interval 30) checked live for
+  STX1813, STX1814 and STX1821: 384 half-hourly rows each for the 8-day range. Positive
+  Velocity_Major is flood, negative ebb. All 11 Port Isabel-area current stations in the
+  NOAA list are harmonic (type H).
+- Browser check (live): 12 current stations loaded. All 43 Port Isabel rows show dawn and
+  dusk direction; 0 errors. The Causeway spot uses STX1814 Queen Isabella Causeway Bridge
+  (0.6 mi): ebb at dawn, flood at dusk, 0.87 kt average in the windows, 74% of its usual
+  peak. The current chart renders in the detail view.
+- Before the tide range started a day early, 12 spots on hilo-only stations had no dawn
+  reading (no curve before the first turn of the day). After: none.
+- 7 new unit checks (flood/ebb as incoming/outgoing, window direction including turning
+  and slack, the 1 kt absolute mark). 31 scoring checks pass in total.
+- Isla Blanca Jetties moved to 26.0666, -97.1494: pass side of the north jetty (OSM
+  breakwater 342184661 starts at 26.0676, -97.1543), beside current station STX1820.
+  OSM does not treat jetty rock as land, so a north wind there reads as exposed.
+- Boca Chica Beach moved to 25.9975, -97.1500: the OSM Gulf coastline at that latitude
+  is at -97.1505; the old point was about 560 m inland. Fetch now open NNE to SSE.
+- High School Shoreline: web research found no angler source naming the spot. OSM
+  (Laguna Madre relation 5121863) shows the shore running about 100°/280° with open water
+  to the N-NNE; Port Isabel High School is about 420 m south, across TX 100. The map
+  measurement stands: SE winds are mostly blocked.

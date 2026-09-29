@@ -47,8 +47,8 @@ no sea state, so the other parts scale up by 100/95.
 | Component | Points | Basis |
 | --- | --- | --- |
 | Wind exposure | 25 | Wind speed × √(open water upwind, miles, capped at 10). Low chop scores 25, then 17 / 9 / 3; under 4 mph 18; over 25 mph 4 |
-| Bait flow | 25 | Share of the windows the water moves the way the spot's role wants (see below); slack earns nothing |
-| Current | 25 | Mean water-level speed in the windows: 70% against the station's usual peak, 30% against 0.3 ft/h. Bay spots: a 5–15 mph wind can stand in, up to 60% |
+| Bait flow | 25 | Share of the windows the water flows the way the spot's role wants (see below); slack earns nothing |
+| Current | 25 | NOAA predicted current (kt) where a station is within 1.5 mi, else water-level speed (ft/h). 70% against the station's usual peak, 30% against 1 kt (or 0.3 ft/h). Bay spots: a 5–15 mph wind can stand in, up to 60% |
 | Solunar | 10 | Major and minor moon periods overlapping dawn or dusk |
 | Pressure | 6 | Least-squares trend across all 24 hourly readings, in mb/day |
 | Rain chance | 4 | Mean probability through the day |
@@ -83,6 +83,18 @@ bait to the fish:
 **The roles are drafted judgments**, from spot names and atlas notes, and need
 review against local knowledge. The detail view explains each spot's wind, bait-flow
 and current score in plain words.
+
+### Pushed in or pulled out: NOAA current predictions
+
+Every row shows, for the dawn and dusk windows, whether water is flowing in (bait
+pushed in), flowing out (bait pulled out), slack, or turning, with ✓ when that is
+what the spot's role wants and ✗ when it is not. Where a NOAA current-prediction
+station is within 1.5 mi (`CURRENT_MAX_MI`), this comes from its predicted flood and
+ebb every 30 minutes, and the detail view charts it. That covers 12 stations and
+about half the spots, including every pass, bridge and channel around Port Isabel.
+Elsewhere it comes from the water level: rising reads as in, falling as out. Tide
+data is fetched from the day before, so stations that publish only high/low times
+have a curve from midnight and the dawn window is never blank.
 
 ### Current: why relative to the station
 

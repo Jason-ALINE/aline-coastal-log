@@ -232,6 +232,10 @@
     margin-top:3px;display:flex;gap:14px;flex-wrap:wrap;font-variant-numeric:tabular-nums;
   }
   .rowsignals .warn{color:var(--rust);}
+  .dirsignals{margin-top:2px;gap:10px;}
+  .dirchip{color:var(--slate);}
+  .dirchip.good{color:var(--good);font-weight:600;}
+  .dirchip.bad{color:var(--rust);}
   .flag{
     font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;font-weight:700;
     letter-spacing:.07em;text-transform:uppercase;padding:2px 6px;border-radius:2px;
@@ -471,8 +475,10 @@ const SPOTS = [
   {id:"bobhall", name:"Bob Hall Pier, Padre Island", region:"Middle", lat:27.5836, lon:-97.2156, types:["surf"]},
   {id:"baffin", name:"Baffin Bay", region:"Middle", lat:27.2967, lon:-97.4400, types:["bay"]},
   {id:"mansfield", name:"Port Mansfield", region:"Lower", lat:26.5589, lon:-97.4308, types:["bay","offshore"]},
-  {id:"spi", name:"South Padre Island / Isla Blanca Jetties", region:"Lower", area:"Port Isabel", lat:26.0606, lon:-97.1581, types:["surf","offshore"]},
-  {id:"bocachica", name:"Boca Chica Beach", region:"Lower", area:"Port Isabel", lat:25.9989, lon:-97.1561, types:["surf","bay"]},
+  // spi: pass side of the north (Isla Blanca) jetty, beside NOAA current station STX1820.
+  // bocachica: the Gulf waterline where Hwy 4 reaches the beach (OSM coastline).
+  {id:"spi", name:"South Padre Island / Isla Blanca Jetties", region:"Lower", area:"Port Isabel", lat:26.0666, lon:-97.1494, types:["surf","offshore"]},
+  {id:"bocachica", name:"Boca Chica Beach", region:"Lower", area:"Port Isabel", lat:25.9975, lon:-97.1500, types:["surf","bay"]},
   // Port Isabel area, GPS from the Texas Lakes & Bays Fishing Atlas 2025-26.
   // portisabel: High School Shoreline, p.223 (N 26 04.830, W 97 14.870).
   // causeway: Pirates Landing Pier, p.222 facilities table (N 26 04.734, W 97 12.402).
@@ -633,8 +639,8 @@ const FETCH = {
   "bobhall":[0.5,3.8,10,10,10,10,10,10,10,10,0.5,0.3,0.2,0.2,0.2,0.3],
   "baffin":[1.1,1.3,7.6,5.2,2.2,5.1,5.3,2.5,2.3,2.8,5,10,2.7,1.8,1.4,1.2],
   "mansfield":null,
-  "spi":[0.6,0.5,10,0.1,0,0,0,0,0,0,0,0,0.1,0.1,10,0.6],
-  "bocachica":[0.3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  "spi":[10,10,10,10,10,10,10,10,5.6,0.2,0.2,0.8,3.1,0.3,0.6,1.9],
+  "bocachica":[4.6,10,10,10,10,10,10,10,0.5,0.1,0,0,0,0,0,0.1],
   "portisabel":[10,3.4,6.1,5.1,4.9,0.2,0.1,0,0,0,0,0,0.1,2.2,3.9,4.8],
   "causeway":[10,4.7,3,2.7,2.3,0.3,0.2,0,0,0,0,0,0.1,6,6.2,3.8],
   "pi-airportcove":[0.3,10,3.1,7.4,7.4,8.6,9.7,6.5,0.5,0.4,0.4,0.3,0.2,0.2,0.2,0.2],
@@ -877,6 +883,9 @@ const DAYS = [];
 for(let i=0;i<DAY_COUNT;i++) DAYS.push(addDays(TODAY_DS, i));
 const RANGE_BEGIN = compactYmd(DAYS[0]);
 const RANGE_END = compactYmd(addDays(TODAY_DS, DAY_COUNT));
+// Tide data starts a day early: stations that publish only high/low times need the
+// previous turn to draw the curve from midnight, or the dawn window is left blank.
+const TIDE_BEGIN = compactYmd(addDays(DAYS[0], -1));
 
 /* ============================== FETCHING ============================== */
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
@@ -951,7 +960,7 @@ function nearestStation(spot, stations){
 }
 
 async function fetchTide(stationId){
-  const base = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${RANGE_BEGIN}&end_date=${RANGE_END}&station=${stationId}&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=${APP_NAME}`;
+  const base = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${TIDE_BEGIN}&end_date=${RANGE_END}&station=${stationId}&product=predictions&datum=MLLW&time_zone=lst_ldt&units=english&format=json&application=${APP_NAME}`;
   const hiloData = await fetchJSON(base+"&interval=hilo");
   if(hiloData.error) throw new Error(hiloData.error.message);
   const hilo = (hiloData.predictions||[]).map(p=>({t:p.t, v:parseFloat(p.v), type:p.type}));
@@ -1032,50 +1041,67 @@ function windExposureScore25(mph, fetchMi){
   if(chop<=60) return 9;
   return 3;
 }
-// Share of the dawn and dusk windows (curve segments) where the water moves the wanted way.
-// "either" counts any movement. Slack water counts as zero. Null when too few segments to judge.
-function flowFraction(curve, windows, want){
-  let good=0, n=0;
+// Water movement as signed samples: + is water coming in (flood, or level rising),
+// - is water going out (ebb, or level falling). From NOAA current predictions (knots)
+// where a station is close, otherwise from the water-level curve (ft/h).
+function levelSamples(curve){
+  const out = [];
   for(let i=0;i<curve.length-1;i++){
     const a=curve[i], b=curve[i+1];
-    const mid=(a.ms+b.ms)/2;
-    if(!windows.some(w=>w && mid>=w[0] && mid<=w[1])) continue;
+    out.push({ms:(a.ms+b.ms)/2, s:(b.v-a.v)/((b.ms-a.ms)/3600000)});
+  }
+  return out;
+}
+const inWindows = (ms, windows) => windows.some(w=>w && ms>=w[0] && ms<=w[1]);
+// Share of the window samples moving the wanted way ("either" counts any movement).
+// Below the threshold is slack and counts as zero. Null when too few samples to judge.
+function flowFraction(samples, windows, want, thresh){
+  let good=0, n=0;
+  for(const p of samples){
+    if(!inWindows(p.ms, windows)) continue;
     n++;
-    const rate=(b.v-a.v)/((b.ms-a.ms)/3600000);   // ft per hour
-    if(Math.abs(rate)<0.08) continue;
-    if(want==="either" || (want==="incoming" ? rate>0 : rate<0)) good++;
+    if(Math.abs(p.s)<thresh) continue;
+    if(want==="either" || (want==="incoming" ? p.s>0 : p.s<0)) good++;
   }
   return n>=2 ? good/n : null;
 }
 function baitFlowScore25(frac){ return frac==null ? 12.5 : 25*frac; }
-// Mean speed of the water level (ft/h) inside the windows. Null when too few segments.
-function windowRate(curve, windows){
-  const rates=[];
-  for(let i=0;i<curve.length-1;i++){
-    const a=curve[i], b=curve[i+1];
-    const mid=(a.ms+b.ms)/2;
-    if(!windows.some(w=>w && mid>=w[0] && mid<=w[1])) continue;
-    rates.push(Math.abs((b.v-a.v)/((b.ms-a.ms)/3600000)));
-  }
-  return rates.length>=2 ? mean(rates) : null;
+// Mean speed inside the windows. Null when too few samples.
+function windowSpeed(samples, windows){
+  const v = samples.filter(p=>inWindows(p.ms, windows)).map(p=>Math.abs(p.s));
+  return v.length>=2 ? mean(v) : null;
 }
-// Current, scored mostly against the station's own usual peak speed (a 1 ft Laguna Madre tide
-// running hard is a good day there) and partly against an absolute 0.3 ft/h. In a bay a steady
-// wind moves water too, so for bay spots it can stand in for a weak tide, up to 60%.
-function currentScore25(rate, refRate, windMph, isBay){
+// Which way the water runs in one window: "in", "out", "slack", or "turning" when the
+// first and second halves run opposite ways.
+function windowDirection(samples, win, thresh){
+  if(!win) return null;
+  const inside = samples.filter(p=>p.ms>=win[0] && p.ms<=win[1]);
+  if(inside.length<2) return null;
+  const dominant = arr => {
+    const c = {in:0, out:0, slack:0};
+    arr.forEach(p=>c[p.s>thresh ? "in" : p.s<-thresh ? "out" : "slack"]++);
+    return ["in","out","slack"].sort((a,b)=>c[b]-c[a])[0];
+  };
+  const half = Math.ceil(inside.length/2);
+  const first = dominant(inside.slice(0,half)), second = dominant(inside.slice(half));
+  if(first!==second && first!=="slack" && second!=="slack") return {dir:"turning", from:first, to:second};
+  return {dir: dominant(inside)};
+}
+// Current, scored mostly against the station's own usual peak (a 1 ft Laguna Madre tide
+// running hard is a good day there) and partly against an absolute full mark: 1 kt for
+// NOAA current predictions, 0.3 ft/h for the water-level fallback. In a bay a steady wind
+// moves water too, so for bay spots it can stand in for a weak tide, up to 60%.
+function currentScore25(rate, refRate, windMph, isBay, absFull=0.3){
   const rel = rate!=null && refRate>0 ? Math.min(1, rate/refRate) : 0;
-  const abs = rate!=null ? Math.min(1, rate/0.3) : 0;
+  const abs = rate!=null ? Math.min(1, rate/absFull) : 0;
   const tideMove = 0.7*rel + 0.3*abs;
   const windMove = isBay ? 0.6*Math.max(0, Math.min(1, (windMph-5)/10)) : 0;
   return {score: 25*Math.max(tideMove, windMove), tideMove, windMove};
 }
-// A station's usual peak: the median over the forecast days of each day's fastest rate.
-function stationRefRate(dayCurves){
-  const peaks = dayCurves.map(c=>{
-    let mx=0;
-    for(let i=0;i<c.length-1;i++) mx = Math.max(mx, Math.abs((c[i+1].v-c[i].v)/((c[i+1].ms-c[i].ms)/3600000)));
-    return mx;
-  }).filter(v=>v>0).sort((x,y)=>x-y);
+// A station's usual peak: the median over the forecast days of each day's fastest movement.
+function usualPeak(daySampleLists){
+  const peaks = daySampleLists.map(list=>list.reduce((mx,p)=>Math.max(mx, Math.abs(p.s)), 0))
+                              .filter(v=>v>0).sort((x,y)=>x-y);
   return peaks.length ? peaks[Math.floor(peaks.length/2)] : null;
 }
 function pressureScore10(mbPerDay){
@@ -1268,10 +1294,16 @@ function computeDayModel(spot, ds, raw){
   const role = ROLES[spot.role];
   const fetchUp = winds.length ? upwindFetch(FETCH[spot.id], windDirAvg) : null;
   const windS = windExposureScore25(windAvg, fetchUp);
-  const flowFrac = flowFraction(dayCurve, windows, role.want);
+  // Real current predictions where a station is close; the water level otherwise.
+  const curDay = raw.currents ? currentDaySamples(raw.currents, ds) : null;
+  const useCur = !!(curDay && curDay.length>=8);
+  const samples = useCur ? curDay : levelSamples(dayCurve);
+  const thresh = useCur ? CURRENT_THRESH_KT : LEVEL_THRESH_FTH;
+  const flowFrac = flowFraction(samples, windows, role.want, thresh);
   const flowS = baitFlowScore25(flowFrac);
-  const rate = windowRate(dayCurve, windows);
-  const cur = currentScore25(rate, raw.refRate, windAvg, spot.types.includes("bay"));
+  const rate = windowSpeed(samples, windows);
+  const cur = currentScore25(rate, useCur ? raw.refCurrent : raw.refRate, windAvg, spot.types.includes("bay"), useCur ? 1.0 : 0.3);
+  const directions = {dawn: windowDirection(samples, dawnWin, thresh), dusk: windowDirection(samples, duskWin, thresh)};
   const solS = solunarScore25(majorHits, minorHits, moon.illum)*0.4;
   const pressS = pressureScore10(pressureTrend)*0.6;
   const precipS = precipScore6(precipAvg)*4/6;
@@ -1316,9 +1348,11 @@ function computeDayModel(spot, ds, raw){
     ds, total, breakdown, hasMarine, flags, dayStartMs, curveSynthesized,
     why:{
       exposure:{fetchUp, label: exposureLabel(fetchUp)},
-      flow:{role, frac: flowFrac},
-      current:{rate, refRate: raw.refRate, tideMove: cur.tideMove, windMove: cur.windMove}
+      flow:{role, frac: flowFrac, directions},
+      current:{rate, refRate: useCur ? raw.refCurrent : raw.refRate, tideMove: cur.tideMove, windMove: cur.windMove,
+               source: useCur ? {kind:"current", ...raw.currentInfo} : {kind:"level"}}
     },
+    currentDay: useCur ? curDay : null,
     tide:{range, dayCurve, dayHilo, extremaNear},
     weather:{windAvg, windDirAvg, gustMax, pressureTrend, precipAvg, tempHi, tempLo, cloudAvg},
     marine:{waveFt, periodS, waterF},
@@ -1497,11 +1531,42 @@ function tideCurveSvg(m, w=600, h=170){
   </svg>`;
 }
 
+// NOAA predicted current through the day: above the line water flows in (flood), below it flows out (ebb).
+function currentChartSvg(m, w=600, h=150){
+  const pts = m.currentDay, start = m.dayStartMs;
+  const padL=38, padR=14, padT=18, padB=24, plotW=w-padL-padR, plotH=h-padT-padB;
+  const maxAbs = Math.max(0.3, ...pts.map(p=>Math.abs(p.s)));
+  const x = ms => padL + Math.max(0,Math.min(1,(ms-start)/86400000))*plotW;
+  const y = v => padT + plotH/2 - (v/maxAbs)*(plotH/2);
+  const line = pts.map(p=>`${x(p.ms).toFixed(1)},${y(p.s).toFixed(1)}`).join(" L");
+  const zeroY = y(0);
+  let bands = "";
+  [m.sunrise, m.sunset].forEach(t=>{
+    if(!t) return;
+    const a = x(+t-90*60000), b = x(+t+90*60000);
+    bands += `<rect x="${a.toFixed(1)}" y="${padT}" width="${(b-a).toFixed(1)}" height="${plotH}" fill="var(--brass)" opacity="0.12"/>`;
+  });
+  const timeLabels = [0,6,12,18,24].map(hh=>{
+    const label = hh%24===0?"12a":hh<12?hh+"a":hh===12?"12p":(hh-12)+"p";
+    return `<text x="${x(start+hh*3600000).toFixed(1)}" y="${h-7}" text-anchor="middle" font-size="10.5" fill="var(--slate)" font-family="IBM Plex Mono, monospace">${label}</text>`;
+  }).join("");
+  const lab = (yy, t) => `<text x="${padL-6}" y="${yy}" text-anchor="end" font-size="10.5" fill="var(--slate)" font-family="IBM Plex Mono, monospace">${t}</text>`;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;" role="img" aria-label="Predicted current through the day">
+    ${bands}
+    <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${w-padR}" y2="${zeroY.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
+    ${lab(padT+10, "+"+maxAbs.toFixed(1))}${lab((zeroY+3).toFixed(1), "0")}${lab(padT+plotH, "−"+maxAbs.toFixed(1))}
+    <text x="${padL+6}" y="${padT+10}" font-size="10.5" fill="var(--good)" font-family="IBM Plex Mono, monospace">flood · pushing in</text>
+    <text x="${padL+6}" y="${padT+plotH-4}" font-size="10.5" fill="var(--rust)" font-family="IBM Plex Mono, monospace">ebb · pulling out</text>
+    <path d="M${line}" fill="none" stroke="var(--water)" stroke-width="2.2" stroke-linejoin="round"/>
+    ${timeLabels}
+  </svg>`;
+}
+
 /* ============================== SCORE COPY ============================== */
 const SCORE_INFO = {
   "Wind exposure":"Wind speed combined with how much open water lies upwind of this spot, measured from OpenStreetMap shorelines in 16 directions. A strong wind blowing off the bank or across a short stretch of water leaves the spot fishable, so it scores full points. The same wind across miles of open bay stirs up chop and mud, and scores low. Dead calm gives up a few points; over 25 mph scores near zero anywhere.",
-  "Bait flow":"Whether the tide moves the way that brings bait to the fish at this kind of spot, during the 90 minutes either side of sunrise and sunset. Passes, jetties, flats and surf want rising water (bait carried in or pushed up). Cove mouths, drains and dropoffs want falling water (bait flushed out to the fish). Cuts and structure count any strong flow. Slack water scores nothing.",
-  "Current":"How fast the water level changes in the dawn and dusk windows. Mostly measured against this station's usual peak speed, so a small Laguna Madre tide running hard still scores well, and partly against an absolute 0.3 ft per hour. At bay spots a steady 10–15 mph wind also moves water, and can stand in for a weak tide.",
+  "Bait flow":"Whether water is flowing in (bait pushed in) or out (bait pulled out) during the 90 minutes either side of sunrise and sunset, from NOAA current predictions where a station is close and from the water level elsewhere, and whether that is the way that brings bait to the fish at this kind of spot. Passes, jetties, flats and surf want rising water (bait carried in or pushed up). Cove mouths, drains and dropoffs want falling water (bait flushed out to the fish). Cuts and structure count any strong flow. Slack water scores nothing.",
+  "Current":"How hard the water is moving in the dawn and dusk windows. Where a NOAA current station is within 1.5 miles, this is its predicted current in knots; elsewhere it is estimated from how fast the water level changes. Mostly measured against that station's usual peak, so a small Laguna Madre tide running hard still scores well. At bay spots a steady 10–15 mph wind also moves water, and can stand in for a weak tide.",
   "Solunar":"Based on the moon's major periods (overhead or underfoot, ±1 hr) and minor periods (moonrise and moonset, ±30 min) lining up with dawn or dusk, with a little extra near new and full moon.",
   "Pressure":"A least-squares trend fitted across all 24 hourly readings and reported in millibars per day, so one noisy hour can't swing it. Stable or slowly falling — the classic pre-front bite — scores highest; sharp moves either way score lower.",
   "Rain chance":"A lower average chance of rain through the day scores higher.",
@@ -1514,6 +1579,20 @@ function windCompassLabel(deg){
   const dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
   return dirs[Math.round(norm360(deg)/22.5)%16];
 }
+const DIR_WORDS = {in:"water flowing in, bait pushed in", out:"water flowing out, bait pulled out", slack:"slack water, bait not moving"};
+const DIR_SHORT = {in:"↑ pushing in", out:"↓ pulling out", slack:"slack"};
+// ✓ when the water runs the way the spot wants, ✗ when it runs the other way.
+function dirVerdict(want, dir){
+  if(dir==="slack" || dir==="turning") return "";
+  if(want==="either") return "good";
+  return (want==="incoming") === (dir==="in") ? "good" : "bad";
+}
+function dirChip(label, d, want){
+  if(!d) return "";
+  const text = d.dir==="turning" ? `${DIR_SHORT[d.from]} → ${DIR_SHORT[d.to].replace(/^[↑↓] /,"")}` : DIR_SHORT[d.dir];
+  const v = dirVerdict(want, d.dir==="turning" ? d.from : d.dir);
+  return `<span class="dirchip ${v}">${label} ${esc(text)}${v==="good"?" ✓":v==="bad"?" ✗":""}</span>`;
+}
 // Says in plain words why the three main parts scored what they did.
 function whyNotes(m){
   const w = m.why, notes = [];
@@ -1522,14 +1601,18 @@ function whyNotes(m){
   notes.push(e.fetchUp==null
     ? `Wind ${dir} ${mph} mph. No shoreline data for this spot, so it is scored as moderately exposed.`
     : `Wind ${dir} ${mph} mph over ${e.fetchUp.toFixed(1)} mi of open water: ${e.label}.`);
-  const f = w.flow;
-  const flowWord = f.role.want==="either" ? "moving" : (f.role.want==="incoming" ? "rising" : "falling");
-  notes.push(`${f.role.label}: ${f.role.want==="either" ? "any strong flow helps" : f.role.want+" water helps"}, because ${f.role.why}. `
-    + (f.frac==null ? "Not enough tide data in the dawn and dusk windows to judge." : `Water is ${flowWord} ${Math.round(f.frac*100)}% of the dawn and dusk windows.`));
-  const c = w.current;
-  let cur = c.rate==null ? "Not enough tide data in the windows to measure current."
-    : `Water level changing ${c.rate.toFixed(2)} ft/h in the dawn and dusk windows`
-      + (c.refRate ? `, ${Math.round(Math.min(1,c.rate/c.refRate)*100)}% of this station's usual peak.` : ".");
+  const f = w.flow, c = w.current, isCur = c.source.kind==="current";
+  const wantWord = f.role.want==="either" ? "any strong flow helps" : f.role.want==="incoming" ? "wants bait pushed in" : "wants bait pulled out";
+  const dirText = (label, d) => !d ? `${label}: no data` : `${label}: ${DIR_WORDS[d.dir==="turning" ? d.from : d.dir]}${d.dir==="turning" ? ", turning to "+DIR_WORDS[d.to] : ""}`;
+  notes.push(`${dirText("Dawn", f.directions.dawn)}. ${dirText("Dusk", f.directions.dusk)}. ${f.role.label}: ${wantWord}, because ${f.role.why}.`
+    + (f.frac==null ? "" : ` It moves the right way ${Math.round(f.frac*100)}% of the dawn and dusk windows.`));
+  let cur = c.rate==null ? "Not enough data in the windows to measure current."
+    : isCur
+      ? `Current averaging ${c.rate.toFixed(2)} kt in the dawn and dusk windows (NOAA prediction, ${c.source.name}, ${c.source.distance.toFixed(1)} mi)`
+        + (c.refRate ? `, ${Math.round(Math.min(1,c.rate/c.refRate)*100)}% of its usual peak.` : ".")
+      : `Water level changing ${c.rate.toFixed(2)} ft/h in the dawn and dusk windows`
+        + (c.refRate ? `, ${Math.round(Math.min(1,c.rate/c.refRate)*100)}% of this station's usual peak.` : ".")
+        + ` No NOAA current station within ${CURRENT_MAX_MI} mi, so this is estimated from the water level.`;
   if(c.windMove > c.tideMove) cur += ` A ${mph} mph wind moves more water here than the tide today, so that is what is scored.`;
   notes.push(cur);
   return `<div style="font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.5;color:var(--ink-soft);padding:8px 0;">${notes.map(n=>`<div style="margin-bottom:4px;">${esc(n)}</div>`).join("")}</div>`;
@@ -1644,6 +1727,10 @@ function renderLedger(){
               ${m.hasMarine&&m.marine.waveFt!=null?`<span>Surf ${m.marine.waveFt.toFixed(1)}ft</span>`:""}
               ${flags}
             </div>
+            <div class="rowsignals dirsignals">
+              ${dirChip("Dawn", m.why.flow.directions.dawn, m.why.flow.role.want)}
+              ${dirChip("Dusk", m.why.flow.directions.dusk, m.why.flow.role.want)}
+            </div>
           </div>
           ${weekStripSvg(weekScores, state.dayIndex)}
           <span class="chev" aria-hidden="true">▸</span>
@@ -1679,6 +1766,13 @@ function renderDetail(spot, m){
           <a class="maplink" href="https://www.google.com/maps/search/?api=1&amp;query=${spot.lat},${spot.lon}" target="_blank" rel="noopener">Open in Google Maps ↗</a>
         </div>
       </div>
+      ${m.currentDay ? `<div class="panel wide">
+        <div class="panelhead">Current</div>
+        <div class="panelbody">
+          <div class="panelmeta">NOAA prediction · ${esc(m.why.current.source.name)} · ${m.why.current.source.distance.toFixed(1)} mi away · knots · shaded: dawn and dusk windows</div>
+          ${currentChartSvg(m, narrow?360:600, narrow?170:150)}
+        </div>
+      </div>` : ""}
       <div class="panel wide">
         <div class="panelhead">Tide curve</div>
         <div class="panelbody">
@@ -1897,12 +1991,51 @@ document.getElementById("modalClose").addEventListener("click", closeModal);
 modalBg.addEventListener("click", e=>{ if(e.target===modalBg) closeModal(); });
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && !modalBg.hidden) closeModal(); });
 
+/* ============================== CURRENTS ============================== */
+// NOAA current predictions. A spot uses a station only when it is this close: currents
+// change fast across a pass or around a bridge, and a far station would mislead.
+const CURRENT_MAX_MI = 1.5;
+const CURRENT_THRESH_KT = 0.1;
+const LEVEL_THRESH_FTH = 0.08;
+async function fetchCurrentStations(){
+  const d = await fetchJSON("https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations.json?type=currentpredictions&units=english");
+  const byId = new Map();
+  (d.stations||[]).forEach(s=>{
+    if(s.lat>=25.5 && s.lat<=30.3 && s.lng>=-97.8 && s.lng<=-93.3 && !byId.has(s.id)) byId.set(s.id, s);
+  });
+  return [...byId.values()];
+}
+function nearestCurrentStation(spot, stations){
+  let best=null, bestD=Infinity;
+  for(const s of stations){
+    const d = haversineMiles(spot.lat, spot.lon, s.lat, s.lng);
+    if(d<bestD){ bestD=d; best=s; }
+  }
+  return best && bestD<=CURRENT_MAX_MI ? {id:best.id, name:best.name, distance:bestD} : null;
+}
+// Velocity along the channel every 30 min, knots: + flood (in), - ebb (out).
+async function fetchCurrents(stationId){
+  const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?begin_date=${RANGE_BEGIN}&end_date=${RANGE_END}&station=${stationId}&product=currents_predictions&interval=30&time_zone=lst_ldt&units=english&format=json&application=${APP_NAME}`;
+  const data = await fetchJSON(url);
+  if(data.error) throw new Error(data.error.message);
+  const cp = (data.current_predictions && data.current_predictions.cp) || [];
+  const pts = cp.map(p=>({ms:+parseCT(p.Time), s:+p.Velocity_Major})).filter(p=>Number.isFinite(p.ms) && Number.isFinite(p.s));
+  if(pts.length<48) throw new Error("too few current predictions");
+  return pts;
+}
+function currentDaySamples(pts, ds){
+  const start = ctMidnight(ds).getTime(), end = start + 24*3600000;
+  return pts.filter(p=>p.ms>=start && p.ms<=end);
+}
+
 /* ============================== BOOTSTRAP ============================== */
 async function boot(){
   const statusEl = document.getElementById("statusLine");
   renderAll();
 
   let stations;
+  // The current station list is optional: without it every spot uses the water level.
+  const currentStationsP = fetchCurrentStations().catch(()=>[]);
   try{
     stations = await fetchTideStations();
   }catch(e){
@@ -1924,18 +2057,31 @@ async function boot(){
     }
   });
 
-  statusEl.textContent = `Loading ${byStation.size} tide stations and marine forecasts for ${SPOTS.length} spots…`;
+  const currentStations = await currentStationsP;
+  const byCurrent = new Map();
+  SPOTS.forEach(spot=>{
+    spot.currentStation = nearestCurrentStation(spot, currentStations);
+    if(spot.currentStation) byCurrent.set(spot.currentStation.id, true);
+  });
+
+  statusEl.textContent = `Loading ${byStation.size} tide stations, ${byCurrent.size} current stations and marine forecasts for ${SPOTS.length} spots…`;
 
   const spotsNeedingGrid = SPOTS.filter(s=>!state.spotData[s.id]);
-  const [weatherMap, marineMap, tideEntries] = await Promise.all([
+  const [weatherMap, marineMap, tideEntries, currentEntries] = await Promise.all([
     fetchGridBatched(spotsNeedingGrid, weatherUrl),
     fetchGridBatched(spotsNeedingGrid, marineUrl),
     Promise.all([...byStation.keys()].map(async id => {
       try{ return [id, await fetchTide(id)]; }
       catch(e){ return [id, {error: e.message || "tide fetch failed"}]; }
+    })),
+    // A failed current station just falls back to the water level for its spots.
+    Promise.all([...byCurrent.keys()].map(async id => {
+      try{ return [id, await fetchCurrents(id)]; }
+      catch(e){ return [id, null]; }
     }))
   ]);
   const tideMap = new Map(tideEntries);
+  const currentMap = new Map(currentEntries);
 
   SPOTS.forEach(spot=>{
     if(state.spotData[spot.id]) return;
@@ -1944,7 +2090,13 @@ async function boot(){
     if(!tide || tide.error){ state.spotData[spot.id] = {error: (tide&&tide.error) || "no tide data"}; return; }
     if(!weather){ state.spotData[spot.id] = {error:"no weather forecast"}; return; }
     const raw = {tide, weather, marine: marineMap.get(spot.id) || null, stationInfo: spot.station};
-    raw.refRate = stationRefRate(DAYS.map(d=>tideDayCurve(raw, d).dayCurve));
+    raw.refRate = usualPeak(DAYS.map(d=>levelSamples(tideDayCurve(raw, d).dayCurve)));
+    const cur = spot.currentStation && currentMap.get(spot.currentStation.id);
+    if(cur){
+      raw.currents = cur;
+      raw.currentInfo = spot.currentStation;
+      raw.refCurrent = usualPeak(DAYS.map(d=>currentDaySamples(cur, d)));
+    }
     const days = {};
     DAYS.forEach(ds=>{ days[ds] = computeDayModel(spot, ds, raw); });
     state.spotData[spot.id] = {raw, days};

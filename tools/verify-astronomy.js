@@ -100,9 +100,10 @@ if (s0 < 0 || s1 <= s0) {
 }
 const sc = {};
 new Function('exports', 'norm360', 'mean', html.slice(s0, s1) +
-  '\nObject.assign(exports,{upwindFetch,exposureLabel,windExposureScore25,flowFraction,baitFlowScore25,windowRate,currentScore25,stationRefRate});')(
+  '\nObject.assign(exports,{upwindFetch,exposureLabel,windExposureScore25,levelSamples,flowFraction,baitFlowScore25,windowSpeed,windowDirection,currentScore25,usualPeak});')(
   sc, ctx.norm360, a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-const { upwindFetch, exposureLabel, windExposureScore25, flowFraction, baitFlowScore25, windowRate, currentScore25, stationRefRate } = sc;
+const { upwindFetch, exposureLabel, windExposureScore25, levelSamples, flowFraction, baitFlowScore25, windowSpeed, windowDirection, currentScore25, usualPeak } = sc;
+const L = c => levelSamples(c), TH = 0.08;
 
 // Fetch: open to the east (10 mi), bank to the west (0).
 const F = [2, 5, 10, 10, 10, 10, 10, 5, 2, 0, 0, 0, 0, 0, 0, 1];
@@ -122,23 +123,33 @@ ok('dead calm gives up a little', windExposureScore25(2, 5) === 18);
 const HR = 3600000, T0 = Date.UTC(2026, 8, 19, 10);
 const curve = f => Array.from({ length: 8 }, (_, i) => ({ ms: T0 + i * HR, v: f(i) }));
 const win = [[T0, T0 + 7 * HR]];
-ok('rising water is fully incoming', flowFraction(curve(i => i * 0.3), win, 'incoming') === 1);
-ok('rising water is never outgoing', flowFraction(curve(i => i * 0.3), win, 'outgoing') === 0);
-ok('falling water is fully outgoing', flowFraction(curve(i => 3 - i * 0.3), win, 'outgoing') === 1);
-ok('"either" counts falling water too', flowFraction(curve(i => 3 - i * 0.3), win, 'either') === 1);
-ok('slack water earns nothing, even for "either"', flowFraction(curve(() => 1), win, 'either') === 0);
+ok('rising water is fully incoming', flowFraction(L(curve(i => i * 0.3)), win, 'incoming', TH) === 1);
+ok('rising water is never outgoing', flowFraction(L(curve(i => i * 0.3)), win, 'outgoing', TH) === 0);
+ok('falling water is fully outgoing', flowFraction(L(curve(i => 3 - i * 0.3)), win, 'outgoing', TH) === 1);
+ok('"either" counts falling water too', flowFraction(L(curve(i => 3 - i * 0.3)), win, 'either', TH) === 1);
+ok('slack water earns nothing, even for "either"', flowFraction(L(curve(() => 1)), win, 'either', TH) === 0);
 ok('too few segments gives null, scored neutral 12.5',
-   flowFraction(curve(i => i * 0.3), [[T0, T0 + 0.5 * HR]], 'incoming') === null && baitFlowScore25(null) === 12.5);
-ok('null windows are tolerated', flowFraction(curve(i => i * 0.3), [null, null], 'incoming') === null);
+   flowFraction(L(curve(i => i * 0.3)), [[T0, T0 + 0.5 * HR]], 'incoming', TH) === null && baitFlowScore25(null) === 12.5);
+ok('null windows are tolerated', flowFraction(L(curve(i => i * 0.3)), [null, null], 'incoming', TH) === null);
 
-ok('window rate of a 0.3 ft/h ramp is 0.3', Math.abs(windowRate(curve(i => i * 0.3), win) - 0.3) < 1e-9);
-ok('window rate ignores direction', Math.abs(windowRate(curve(i => 3 - i * 0.3), win) - 0.3) < 1e-9);
+ok('window rate of a 0.3 ft/h ramp is 0.3', Math.abs(windowSpeed(L(curve(i => i * 0.3)), win) - 0.3) < 1e-9);
+ok('window rate ignores direction', Math.abs(windowSpeed(L(curve(i => 3 - i * 0.3)), win) - 0.3) < 1e-9);
 ok('station reference is the median daily peak',
-   Math.abs(stationRefRate([curve(i => i * 0.1), curve(i => i * 0.2), curve(i => i * 0.3)]) - 0.2) < 1e-9);
+   Math.abs(usualPeak([L(curve(i => i * 0.1)), L(curve(i => i * 0.2)), L(curve(i => i * 0.3))]) - 0.2) < 1e-9);
 ok('tide at its usual peak and 0.3 ft/h earns full current', Math.abs(currentScore25(0.3, 0.3, 0, true).score - 25) < 1e-9);
 ok('small tide running at its own peak still earns 70%+', currentScore25(0.1, 0.1, 0, false).score >= 0.7 * 25);
 ok('slack tide, 15 mph at a bay spot: wind stands in at 60%', Math.abs(currentScore25(0, 0.2, 15, true).score - 15) < 1e-9);
 ok('wind does not stand in at a surf-only spot', currentScore25(0, 0.2, 15, false).score === 0);
+
+ok('currents: flood 1 kt with a 1 kt absolute mark earns full current', Math.abs(currentScore25(1, 1, 0, false, 1.0).score - 25) < 1e-9);
+const kt = f => Array.from({ length: 8 }, (_, i) => ({ ms: T0 + i * HR, s: f(i) }));
+ok('flood current counts as incoming', flowFraction(kt(() => 0.8), win, 'incoming', 0.1) === 1);
+ok('ebb current counts as outgoing', flowFraction(kt(() => -0.8), win, 'outgoing', 0.1) === 1);
+ok('window direction: flood is "in"', windowDirection(kt(() => 0.8), win[0], 0.1).dir === 'in');
+ok('window direction: weak current is "slack"', windowDirection(kt(() => 0.05), win[0], 0.1).dir === 'slack');
+const turn = windowDirection(kt(i => i < 4 ? 0.6 : -0.6), win[0], 0.1);
+ok('window direction: flood then ebb is "turning" in to out', turn.dir === 'turning' && turn.from === 'in' && turn.to === 'out');
+ok('window direction: no window gives null', windowDirection(kt(() => 1), null, 0.1) === null);
 
 console.log(fails ? '\n' + fails + ' check(s) FAILED\n' : '\nAll checks passed.\n');
 process.exit(fails ? 1 : 0);
