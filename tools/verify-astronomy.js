@@ -100,9 +100,9 @@ if (s0 < 0 || s1 <= s0) {
 }
 const sc = {};
 new Function('exports', 'norm360', 'mean', html.slice(s0, s1) +
-  '\nObject.assign(exports,{upwindFetch,exposureLabel,windExposureScore25,levelSamples,flowFraction,baitFlowScore25,windowSpeed,windowDirection,currentScore25,usualPeak});')(
+  '\nObject.assign(exports,{upwindFetch,exposureLabel,windExposureScore25,levelSamples,flowFraction,baitFlowScore25,windowSpeed,baitSegments,fishingWindows,currentScore25,usualPeak});')(
   sc, ctx.norm360, a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-const { upwindFetch, exposureLabel, windExposureScore25, levelSamples, flowFraction, baitFlowScore25, windowSpeed, windowDirection, currentScore25, usualPeak } = sc;
+const { upwindFetch, exposureLabel, windExposureScore25, levelSamples, flowFraction, baitFlowScore25, windowSpeed, baitSegments, fishingWindows, currentScore25, usualPeak } = sc;
 const L = c => levelSamples(c), TH = 0.08;
 
 // Fetch: open to the east (10 mi), bank to the west (0).
@@ -145,11 +145,28 @@ ok('currents: flood 1 kt with a 1 kt absolute mark earns full current', Math.abs
 const kt = f => Array.from({ length: 8 }, (_, i) => ({ ms: T0 + i * HR, s: f(i) }));
 ok('flood current counts as incoming', flowFraction(kt(() => 0.8), win, 'incoming', 0.1) === 1);
 ok('ebb current counts as outgoing', flowFraction(kt(() => -0.8), win, 'outgoing', 0.1) === 1);
-ok('window direction: flood is "in"', windowDirection(kt(() => 0.8), win[0], 0.1).dir === 'in');
-ok('window direction: weak current is "slack"', windowDirection(kt(() => 0.05), win[0], 0.1).dir === 'slack');
-const turn = windowDirection(kt(i => i < 4 ? 0.6 : -0.6), win[0], 0.1);
-ok('window direction: flood then ebb is "turning" in to out', turn.dir === 'turning' && turn.from === 'in' && turn.to === 'out');
-ok('window direction: no window gives null', windowDirection(kt(() => 1), null, 0.1) === null);
+// Bait timeline: 12 half-hour samples, flood, one slack sample (a 30 min turn), then ebb.
+const k12 = f => Array.from({ length: 12 }, (_, i) => ({ ms: T0 + i * HR / 2, s: f(i) }));
+const segs = baitSegments(k12(i => i < 5 ? 0.8 : i < 6 ? 0.05 : -0.8), [[T0, T0 + 5.5 * HR]], 0.1);
+ok('bait timeline: in, then out, slack turn absorbed', segs.length === 2 && segs[0].dir === 'in' && segs[1].dir === 'out',
+   segs.map(x => x.dir).join(','));
+ok('bait timeline: turn lands mid-slack (2.5 h in)', Math.abs(segs[0].end - (T0 + 2.5 * HR)) < 1, String((segs[0].end - T0) / HR));
+ok('bait timeline: covers the window edge to edge', segs[0].start === T0 && segs[1].end === T0 + 5.5 * HR);
+ok('bait timeline: records the peak', segs[0].peak === 0.8);
+const longSlack = baitSegments(k12(i => i < 3 ? 0.8 : i < 9 ? 0 : -0.8), [[T0, T0 + 5.5 * HR]], 0.1);
+ok('bait timeline: a long slack is listed', longSlack.map(x => x.dir).join(',') === 'in,slack,out', longSlack.map(x => x.dir).join(','));
+ok('bait timeline: no window gives nothing', baitSegments(k12(() => 1), [null], 0.1).length === 0);
+
+const DAY0 = Date.UTC(2026, 8, 30, 5), SR = new Date(DAY0 + 7 * HR), SS = new Date(DAY0 + 19 * HR);
+const allDay = fishingWindows('allday', SR, SS, DAY0);
+ok('all day: an hour before sunrise to sunset', allDay.windows[0][0] === +SR - HR && allDay.windows[0][1] === +SS);
+ok('all day: mornings count double', allDay.weight(DAY0 + 9 * HR) === 2 && allDay.weight(DAY0 + 15 * HR) === 1);
+ok('morning: ends at noon', fishingWindows('morning', SR, SS, DAY0).windows[0][1] === DAY0 + 12 * HR);
+ok('dawn & dusk: two 3-hour windows', fishingWindows('dawndusk', SR, SS, DAY0).windows.length === 2);
+// In at 1 kt all morning, out at 1 kt all afternoon: morning weight makes "incoming" win 2:1.
+const dayPts = Array.from({ length: 24 }, (_, i) => ({ ms: DAY0 + i * HR + HR / 2, s: i < 12 ? 1 : -1 }));
+const inShare = flowFraction(dayPts, allDay.windows, 'incoming', 0.1, allDay.weight);
+ok('morning weighting counts the morning flow double', inShare > 0.6 && inShare < 0.75, inShare.toFixed(2));
 
 console.log(fails ? '\n' + fails + ' check(s) FAILED\n' : '\nAll checks passed.\n');
 process.exit(fails ? 1 : 0);

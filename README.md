@@ -39,9 +39,13 @@ No API keys. Nothing is sent anywhere except those three requests.
 
 ## How the score works
 
-Three questions carry 75 of the 100 points, all judged in the dawn and dusk windows
-(sunrise and sunset ±90 min): is the spot protected from today's wind, is the tide
-moving bait toward the fish, and how hard is the water moving. Bay-only spots have
+Three questions carry 75 of the 100 points: is the spot protected from today's wind,
+is the water pushing bait in or pulling it out the way the spot needs, and how hard
+is the water moving. Bait and current are judged over the fishing hours chosen with
+the **Hours** buttons (saved per browser): **All day** (default: an hour before
+sunrise to sunset, samples before noon weighted double), **Morning** (an hour
+before sunrise to noon) or **Dawn & dusk** (sunrise and sunset ±90 min). The sun only
+sets which hours count; direction always comes from the tide and current. Bay-only spots have
 no sea state, so the other parts scale up by 100/95.
 
 | Component | Points | Basis |
@@ -86,9 +90,11 @@ and current score in plain words.
 
 ### Pushed in or pulled out: NOAA current predictions
 
-Every row shows, for the dawn and dusk windows, whether water is flowing in (bait
-pushed in), flowing out (bait pulled out), slack, or turning, with ✓ when that is
-what the spot's role wants and ✗ when it is not. Where a NOAA current-prediction
+Every row has a **Bait** line with the time ranges, inside the chosen hours, when
+water flows in (bait pushed in), flows out (bait pulled out) or is slack, with ✓ when
+that is what the spot's role wants and ✗ when it is not. A slack spell under 45 min
+between two flows is the turn itself and is split between them. The detail view
+lists the whole day, with each flow's peak. Where a NOAA current-prediction
 station is within 1.5 mi (`CURRENT_MAX_MI`), this comes from its predicted flood and
 ebb every 30 minutes, and the detail view charts it. That covers 12 stations and
 about half the spots, including every pass, bridge and channel around Port Isabel.

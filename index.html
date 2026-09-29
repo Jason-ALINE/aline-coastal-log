@@ -232,7 +232,9 @@
     margin-top:3px;display:flex;gap:14px;flex-wrap:wrap;font-variant-numeric:tabular-nums;
   }
   .rowsignals .warn{color:var(--rust);}
-  .dirsignals{margin-top:2px;gap:10px;}
+  .dirsignals{margin-top:2px;gap:8px;align-items:baseline;}
+  .baitlabel{font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.04em;}
+  .dirsep{color:var(--slate);}
   .dirchip{color:var(--slate);}
   .dirchip.good{color:var(--good);font-weight:600;}
   .dirchip.bad{color:var(--rust);}
@@ -408,6 +410,12 @@ try{ const t = localStorage.getItem("coastal-log:theme"); if(t==="light"||t==="d
       <button type="button" class="chip" data-filter="type" data-value="surf" aria-pressed="false">Surf/Jetty</button>
       <button type="button" class="chip" data-filter="type" data-value="offshore" aria-pressed="false">Nearshore/Offshore</button>
     </div>
+    <div class="filtergroup" role="group" aria-label="Hours scored for bait and current">
+      <span class="flabel">Hours</span>
+      <button type="button" class="chip" data-filter="hours" data-value="allday" aria-pressed="true">All day</button>
+      <button type="button" class="chip" data-filter="hours" data-value="morning" aria-pressed="false">Morning</button>
+      <button type="button" class="chip" data-filter="hours" data-value="dawndusk" aria-pressed="false">Dawn &amp; dusk</button>
+    </div>
     <div class="filtergroup" role="group" aria-label="Filter by saved spots">
       <button type="button" class="chip" id="favChip" data-filter="fav" data-value="on" aria-pressed="false">★ Saved only</button>
     </div>
@@ -433,11 +441,11 @@ try{ const t = localStorage.getItem("coastal-log:theme"); if(t==="light"||t==="d
   <div class="modal">
     <button class="modal-close" id="modalClose" aria-label="Close">×</button>
     <h3 id="modalTitle">How the score works</h3>
-    <p>Each spot gets a 0–100 score. Three questions carry 75 of the points: is the spot protected from today's wind, is the tide moving bait toward the fish, and how hard is the water moving. All three are judged in the 90 minutes either side of sunrise and sunset, when fish feed hardest.</p>
+    <p>Each spot gets a 0–100 score. Three questions carry 75 of the points: is the spot protected from today's wind, is the water pushing bait in or pulling it out the way this spot needs, and how hard is the water moving. Bait and current are judged over your fishing hours, set with the <b>Hours</b> buttons: All day (an hour before sunrise to sunset, mornings count double), Morning, or Dawn &amp; dusk. The sun only sets which hours count; the direction always comes from the tide and current.</p>
     <ul>
       <li><b>Wind exposure (25 pts)</b> — wind speed combined with how much open water lies upwind, measured from shoreline maps in 16 directions. Strong wind off the bank: fishable, full points. Strong wind across miles of open bay: choppy and muddy, low points.</li>
-      <li><b>Bait flow (25 pts)</b> — each spot has a role. Passes, jetties, flats and surf want rising water; cove mouths, drains and dropoffs want falling water; cuts and structure want any strong flow. Points for the share of the windows the water moves the right way.</li>
-      <li><b>Current (25 pts)</b> — how fast the water level is changing, compared with that station's usual peak. At bay spots a steady wind can stand in for a weak tide.</li>
+      <li><b>Bait flow (25 pts)</b> — whether bait is being pushed in (flood, rising water) or pulled out (ebb, falling water). Each spot has a role: passes, jetties, flats and surf want bait pushed in; cove mouths, drains and dropoffs want it pulled out; cuts and structure want any strong flow. Points for the share of your hours it moves the right way. Each row's <b>Bait</b> line shows the times.</li>
+      <li><b>Current (25 pts)</b> — how hard the water is moving: NOAA predicted current in knots where a station is within 1.5 miles, otherwise how fast the water level changes, compared with that station's usual peak. At bay spots a steady wind can stand in for a weak tide.</li>
       <li><b>Solunar (10 pts)</b> — moon major and minor periods overlapping dawn or dusk.</li>
       <li><b>Pressure (6 pts)</b> — stable or slowly falling scores highest.</li>
       <li><b>Rain chance (4 pts)</b> — lower is better.</li>
@@ -1053,39 +1061,77 @@ function levelSamples(curve){
   return out;
 }
 const inWindows = (ms, windows) => windows.some(w=>w && ms>=w[0] && ms<=w[1]);
-// Share of the window samples moving the wanted way ("either" counts any movement).
-// Below the threshold is slack and counts as zero. Null when too few samples to judge.
-function flowFraction(samples, windows, want, thresh){
-  let good=0, n=0;
+// Share of the window samples moving the wanted way ("either" counts any movement),
+// weighted by time of day. Below the threshold is slack and counts as zero. Null when
+// too few samples to judge.
+function flowFraction(samples, windows, want, thresh, weight=()=>1){
+  let good=0, total=0, count=0;
   for(const p of samples){
     if(!inWindows(p.ms, windows)) continue;
-    n++;
+    const w = weight(p.ms);
+    total += w; count++;
     if(Math.abs(p.s)<thresh) continue;
-    if(want==="either" || (want==="incoming" ? p.s>0 : p.s<0)) good++;
+    if(want==="either" || (want==="incoming" ? p.s>0 : p.s<0)) good += w;
   }
-  return n>=2 ? good/n : null;
+  return count>=2 ? good/total : null;
 }
 function baitFlowScore25(frac){ return frac==null ? 12.5 : 25*frac; }
-// Mean speed inside the windows. Null when too few samples.
-function windowSpeed(samples, windows){
-  const v = samples.filter(p=>inWindows(p.ms, windows)).map(p=>Math.abs(p.s));
-  return v.length>=2 ? mean(v) : null;
+// Weighted mean speed inside the windows. Null when too few samples.
+function windowSpeed(samples, windows, weight=()=>1){
+  let sum=0, total=0, count=0;
+  for(const p of samples){
+    if(!inWindows(p.ms, windows)) continue;
+    const w = weight(p.ms);
+    sum += w*Math.abs(p.s); total += w; count++;
+  }
+  return count>=2 ? sum/total : null;
 }
-// Which way the water runs in one window: "in", "out", "slack", or "turning" when the
-// first and second halves run opposite ways.
-function windowDirection(samples, win, thresh){
-  if(!win) return null;
-  const inside = samples.filter(p=>p.ms>=win[0] && p.ms<=win[1]);
-  if(inside.length<2) return null;
-  const dominant = arr => {
-    const c = {in:0, out:0, slack:0};
-    arr.forEach(p=>c[p.s>thresh ? "in" : p.s<-thresh ? "out" : "slack"]++);
-    return ["in","out","slack"].sort((a,b)=>c[b]-c[a])[0];
-  };
-  const half = Math.ceil(inside.length/2);
-  const first = dominant(inside.slice(0,half)), second = dominant(inside.slice(half));
-  if(first!==second && first!=="slack" && second!=="slack") return {dir:"turning", from:first, to:second};
-  return {dir: dominant(inside)};
+// Bait movement as time ranges inside the windows: "in", "out" or "slack", each with its
+// strongest movement. A slack spell under 45 min between two flows is just the turn, so
+// it is split between them rather than listed.
+function baitSegments(samples, windows, thresh){
+  const out = [];
+  const cls = p => p.s>thresh ? "in" : p.s<-thresh ? "out" : "slack";
+  for(const win of windows){
+    if(!win) continue;
+    const pts = samples.filter(p=>p.ms>=win[0] && p.ms<=win[1]);
+    if(pts.length<2) continue;
+    const runs = [];
+    pts.forEach(p=>{
+      const c = cls(p), last = runs[runs.length-1];
+      if(last && last.dir===c) last.pts.push(p); else runs.push({dir:c, pts:[p]});
+    });
+    runs.forEach((r,i)=>{ r.start = i===0 ? win[0] : (runs[i-1].pts[runs[i-1].pts.length-1].ms + r.pts[0].ms)/2; });
+    runs.forEach((r,i)=>{ r.end = i===runs.length-1 ? win[1] : runs[i+1].start; });
+    const merged = [];
+    for(let i=0;i<runs.length;i++){
+      const r = runs[i];
+      if(r.dir==="slack" && r.end-r.start<45*60000 && merged.length && i<runs.length-1){
+        const mid = (r.start+r.end)/2;
+        merged[merged.length-1].end = mid;
+        runs[i+1].start = mid;
+        continue;
+      }
+      const prev = merged[merged.length-1];
+      if(prev && prev.dir===r.dir){ prev.end = r.end; prev.pts = prev.pts.concat(r.pts); }
+      else merged.push({dir:r.dir, start:r.start, end:r.end, pts:r.pts.slice()});
+    }
+    merged.forEach(r=>{
+      const peak = r.pts.reduce((a,p)=>Math.abs(p.s)>Math.abs(a.s) ? p : a, r.pts[0]);
+      out.push({dir:r.dir, start:r.start, end:r.end, peak:Math.abs(peak.s), peakMs:peak.ms});
+    });
+  }
+  return out;
+}
+// The hours bait flow and current are scored on. "allday" runs from an hour before
+// sunrise to sunset with the morning counting double, since that is when trips start.
+function fishingWindows(mode, sunrise, sunset, dayStartMs){
+  const noon = dayStartMs + 12*3600000, HR = 3600000;
+  if(!sunrise || !sunset) return {windows:[], weight:()=>1};
+  const sr = +sunrise, ss = +sunset;
+  if(mode==="morning")  return {windows:[[sr-HR, noon]], weight:()=>1};
+  if(mode==="dawndusk") return {windows:[[sr-1.5*HR, sr+1.5*HR], [ss-1.5*HR, ss+1.5*HR]], weight:()=>1};
+  return {windows:[[sr-HR, ss]], weight: ms => ms<noon ? 2 : 1};
 }
 // Current, scored mostly against the station's own usual peak (a 1 ft Laguna Madre tide
 // running hard is a good day there) and partly against an absolute full mark: 1 kt for
@@ -1290,7 +1336,7 @@ function computeDayModel(spot, ds, raw){
 
   /* ---- Score ---- */
   const hasMarine = waveFt!=null && (spot.types.includes("surf")||spot.types.includes("offshore"));
-  const windows = [dawnWin, duskWin];
+  const fw = fishingWindows(state.hours, sunrise, sunset, dayStartMs);
   const role = ROLES[spot.role];
   const fetchUp = winds.length ? upwindFetch(FETCH[spot.id], windDirAvg) : null;
   const windS = windExposureScore25(windAvg, fetchUp);
@@ -1299,11 +1345,15 @@ function computeDayModel(spot, ds, raw){
   const useCur = !!(curDay && curDay.length>=8);
   const samples = useCur ? curDay : levelSamples(dayCurve);
   const thresh = useCur ? CURRENT_THRESH_KT : LEVEL_THRESH_FTH;
-  const flowFrac = flowFraction(samples, windows, role.want, thresh);
+  const flowFrac = flowFraction(samples, fw.windows, role.want, thresh, fw.weight);
   const flowS = baitFlowScore25(flowFrac);
-  const rate = windowSpeed(samples, windows);
+  const rate = windowSpeed(samples, fw.windows, fw.weight);
   const cur = currentScore25(rate, useCur ? raw.refCurrent : raw.refRate, windAvg, spot.types.includes("bay"), useCur ? 1.0 : 0.3);
-  const directions = {dawn: windowDirection(samples, dawnWin, thresh), dusk: windowDirection(samples, duskWin, thresh)};
+  const bait = {
+    scored: baitSegments(samples, fw.windows, thresh),
+    day: baitSegments(samples, [[dayStartMs, dayStartMs+24*3600000]], thresh),
+    unit: useCur ? "kt" : "ft/h"
+  };
   const solS = solunarScore25(majorHits, minorHits, moon.illum)*0.4;
   const pressS = pressureScore10(pressureTrend)*0.6;
   const precipS = precipScore6(precipAvg)*4/6;
@@ -1348,11 +1398,12 @@ function computeDayModel(spot, ds, raw){
     ds, total, breakdown, hasMarine, flags, dayStartMs, curveSynthesized,
     why:{
       exposure:{fetchUp, label: exposureLabel(fetchUp)},
-      flow:{role, frac: flowFrac, directions},
+      flow:{role, frac: flowFrac, bait},
       current:{rate, refRate: useCur ? raw.refCurrent : raw.refRate, tideMove: cur.tideMove, windMove: cur.windMove,
                source: useCur ? {kind:"current", ...raw.currentInfo} : {kind:"level"}}
     },
     currentDay: useCur ? curDay : null,
+    fishWindows: fw.windows,
     tide:{range, dayCurve, dayHilo, extremaNear},
     weather:{windAvg, windDirAvg, gustMax, pressureTrend, precipAvg, tempHi, tempLo, cloudAvg},
     marine:{waveFt, periodS, waterF},
@@ -1361,6 +1412,16 @@ function computeDayModel(spot, ds, raw){
 }
 
 /* ============================== STATE ============================== */
+const HOURS_KEY = "coastal-log:hours";
+const HOURS = {
+  allday:   {label:"All day"},
+  morning:  {label:"Morning"},
+  dawndusk: {label:"Dawn & dusk"},
+};
+function loadHours(){
+  try{ const h = localStorage.getItem(HOURS_KEY); if(HOURS[h]) return h; }catch(e){}
+  return "allday";
+}
 const FAV_KEY = "coastal-log:favorites";
 function loadFavs(){
   try{ return new Set(JSON.parse(localStorage.getItem(FAV_KEY)||"[]")); }catch(e){ return new Set(); }
@@ -1376,6 +1437,7 @@ const state = {
   expanded: null,
   openExplains: new Set(),
   favorites: loadFavs(),
+  hours: loadHours(),
   spotData: {},
 };
 
@@ -1541,9 +1603,8 @@ function currentChartSvg(m, w=600, h=150){
   const line = pts.map(p=>`${x(p.ms).toFixed(1)},${y(p.s).toFixed(1)}`).join(" L");
   const zeroY = y(0);
   let bands = "";
-  [m.sunrise, m.sunset].forEach(t=>{
-    if(!t) return;
-    const a = x(+t-90*60000), b = x(+t+90*60000);
+  m.fishWindows.forEach(([ws,we])=>{
+    const a = x(ws), b = x(we);
     bands += `<rect x="${a.toFixed(1)}" y="${padT}" width="${(b-a).toFixed(1)}" height="${plotH}" fill="var(--brass)" opacity="0.12"/>`;
   });
   const timeLabels = [0,6,12,18,24].map(hh=>{
@@ -1555,8 +1616,8 @@ function currentChartSvg(m, w=600, h=150){
     ${bands}
     <line x1="${padL}" y1="${zeroY.toFixed(1)}" x2="${w-padR}" y2="${zeroY.toFixed(1)}" stroke="var(--line)" stroke-width="1"/>
     ${lab(padT+10, "+"+maxAbs.toFixed(1))}${lab((zeroY+3).toFixed(1), "0")}${lab(padT+plotH, "−"+maxAbs.toFixed(1))}
-    <text x="${padL+6}" y="${padT+10}" font-size="10.5" fill="var(--good)" font-family="IBM Plex Mono, monospace">flood · pushing in</text>
-    <text x="${padL+6}" y="${padT+plotH-4}" font-size="10.5" fill="var(--rust)" font-family="IBM Plex Mono, monospace">ebb · pulling out</text>
+    <text x="${padL+6}" y="${padT+10}" font-size="10.5" fill="var(--good)" font-family="IBM Plex Mono, monospace">bait pushed in · flood</text>
+    <text x="${padL+6}" y="${padT+plotH-4}" font-size="10.5" fill="var(--rust)" font-family="IBM Plex Mono, monospace">bait pulled out · ebb</text>
     <path d="M${line}" fill="none" stroke="var(--water)" stroke-width="2.2" stroke-linejoin="round"/>
     ${timeLabels}
   </svg>`;
@@ -1565,8 +1626,8 @@ function currentChartSvg(m, w=600, h=150){
 /* ============================== SCORE COPY ============================== */
 const SCORE_INFO = {
   "Wind exposure":"Wind speed combined with how much open water lies upwind of this spot, measured from OpenStreetMap shorelines in 16 directions. A strong wind blowing off the bank or across a short stretch of water leaves the spot fishable, so it scores full points. The same wind across miles of open bay stirs up chop and mud, and scores low. Dead calm gives up a few points; over 25 mph scores near zero anywhere.",
-  "Bait flow":"Whether water is flowing in (bait pushed in) or out (bait pulled out) during the 90 minutes either side of sunrise and sunset, from NOAA current predictions where a station is close and from the water level elsewhere, and whether that is the way that brings bait to the fish at this kind of spot. Passes, jetties, flats and surf want rising water (bait carried in or pushed up). Cove mouths, drains and dropoffs want falling water (bait flushed out to the fish). Cuts and structure count any strong flow. Slack water scores nothing.",
-  "Current":"How hard the water is moving in the dawn and dusk windows. Where a NOAA current station is within 1.5 miles, this is its predicted current in knots; elsewhere it is estimated from how fast the water level changes. Mostly measured against that station's usual peak, so a small Laguna Madre tide running hard still scores well. At bay spots a steady 10–15 mph wind also moves water, and can stand in for a weak tide.",
+  "Bait flow":"Whether water is flowing in (bait pushed in) or out (bait pulled out) during your fishing hours, from NOAA current predictions where a station is close and from the water level elsewhere, and whether that is the way that brings bait to the fish at this kind of spot. Set the hours with the Hours buttons: All day (an hour before sunrise to sunset, mornings count double), Morning, or Dawn & dusk. Passes, jetties, flats and surf want rising water (bait carried in or pushed up). Cove mouths, drains and dropoffs want falling water (bait flushed out to the fish). Cuts and structure count any strong flow. Slack water scores nothing.",
+  "Current":"How hard the water is moving during your fishing hours. Where a NOAA current station is within 1.5 miles, this is its predicted current in knots; elsewhere it is estimated from how fast the water level changes. Mostly measured against that station's usual peak, so a small Laguna Madre tide running hard still scores well. At bay spots a steady 10–15 mph wind also moves water, and can stand in for a weak tide.",
   "Solunar":"Based on the moon's major periods (overhead or underfoot, ±1 hr) and minor periods (moonrise and moonset, ±30 min) lining up with dawn or dusk, with a little extra near new and full moon.",
   "Pressure":"A least-squares trend fitted across all 24 hourly readings and reported in millibars per day, so one noisy hour can't swing it. Stable or slowly falling — the classic pre-front bite — scores highest; sharp moves either way score lower.",
   "Rain chance":"A lower average chance of rain through the day scores higher.",
@@ -1579,19 +1640,25 @@ function windCompassLabel(deg){
   const dirs=["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
   return dirs[Math.round(norm360(deg)/22.5)%16];
 }
-const DIR_WORDS = {in:"water flowing in, bait pushed in", out:"water flowing out, bait pulled out", slack:"slack water, bait not moving"};
-const DIR_SHORT = {in:"↑ pushing in", out:"↓ pulling out", slack:"slack"};
+const BAIT_SHORT = {in:"↑ in", out:"↓ out", slack:"– slack"};
+const BAIT_WORDS = {in:"pushed in", out:"pulled out", slack:"not moving (slack)"};
+const shortTime = ms => fmtTime(new Date(ms)).replace(/\s/g,"").replace("AM","a").replace("PM","p");
 // ✓ when the water runs the way the spot wants, ✗ when it runs the other way.
 function dirVerdict(want, dir){
-  if(dir==="slack" || dir==="turning") return "";
+  if(dir==="slack") return "";
   if(want==="either") return "good";
   return (want==="incoming") === (dir==="in") ? "good" : "bad";
 }
-function dirChip(label, d, want){
-  if(!d) return "";
-  const text = d.dir==="turning" ? `${DIR_SHORT[d.from]} → ${DIR_SHORT[d.to].replace(/^[↑↓] /,"")}` : DIR_SHORT[d.dir];
-  const v = dirVerdict(want, d.dir==="turning" ? d.from : d.dir);
-  return `<span class="dirchip ${v}">${label} ${esc(text)}${v==="good"?" ✓":v==="bad"?" ✗":""}</span>`;
+// "Bait ↑ in 5:50a–11:50a ✓ · ↓ out 11:50a–6:10p ✗" for the scored hours.
+function baitLine(m){
+  const want = m.why.flow.role.want;
+  const segs = m.why.flow.bait.scored.filter(sg=>sg.end-sg.start>=20*60000);
+  if(!segs.length) return "";
+  const chips = segs.slice(0,4).map(sg=>{
+    const v = dirVerdict(want, sg.dir);
+    return `<span class="dirchip ${v}">${BAIT_SHORT[sg.dir]} ${shortTime(sg.start)}–${shortTime(sg.end)}${v==="good"?" ✓":v==="bad"?" ✗":""}</span>`;
+  }).join(`<span class="dirsep">·</span>`);
+  return `<span class="baitlabel">Bait</span>${chips}${segs.length>4?`<span class="dirchip">+${segs.length-4} more</span>`:""}`;
 }
 // Says in plain words why the three main parts scored what they did.
 function whyNotes(m){
@@ -1603,14 +1670,18 @@ function whyNotes(m){
     : `Wind ${dir} ${mph} mph over ${e.fetchUp.toFixed(1)} mi of open water: ${e.label}.`);
   const f = w.flow, c = w.current, isCur = c.source.kind==="current";
   const wantWord = f.role.want==="either" ? "any strong flow helps" : f.role.want==="incoming" ? "wants bait pushed in" : "wants bait pulled out";
-  const dirText = (label, d) => !d ? `${label}: no data` : `${label}: ${DIR_WORDS[d.dir==="turning" ? d.from : d.dir]}${d.dir==="turning" ? ", turning to "+DIR_WORDS[d.to] : ""}`;
-  notes.push(`${dirText("Dawn", f.directions.dawn)}. ${dirText("Dusk", f.directions.dusk)}. ${f.role.label}: ${wantWord}, because ${f.role.why}.`
-    + (f.frac==null ? "" : ` It moves the right way ${Math.round(f.frac*100)}% of the dawn and dusk windows.`));
-  let cur = c.rate==null ? "Not enough data in the windows to measure current."
+  const hrs = HOURS[state.hours];
+  const hoursText = m.fishWindows.map(w=>`${shortTime(w[0])}–${shortTime(w[1])}`).join(" and ");
+  const segText = f.bait.day.filter(sg=>sg.end-sg.start>=20*60000).map(sg=>
+    `${shortTime(sg.start)}–${shortTime(sg.end)} ${BAIT_WORDS[sg.dir]}${sg.dir!=="slack" ? ` (peak ${sg.peak.toFixed(sg.peak<1?2:1)} ${f.bait.unit} at ${shortTime(sg.peakMs)})` : ""}`).join("; ");
+  notes.push(`Bait today: ${segText || "no data"}.`);
+  notes.push(`${f.role.label}: ${wantWord}, because ${f.role.why}.`
+    + (f.frac==null ? "" : ` During your hours (${hrs.label}, ${hoursText}${state.hours==="allday" ? ", mornings count double" : ""}) bait moves the right way ${Math.round(f.frac*100)}% of the time.`));
+  let cur = c.rate==null ? "Not enough data in your hours to measure current."
     : isCur
-      ? `Current averaging ${c.rate.toFixed(2)} kt in the dawn and dusk windows (NOAA prediction, ${c.source.name}, ${c.source.distance.toFixed(1)} mi)`
+      ? `Current averaging ${c.rate.toFixed(2)} kt during your hours (NOAA prediction, ${c.source.name}, ${c.source.distance.toFixed(1)} mi)`
         + (c.refRate ? `, ${Math.round(Math.min(1,c.rate/c.refRate)*100)}% of its usual peak.` : ".")
-      : `Water level changing ${c.rate.toFixed(2)} ft/h in the dawn and dusk windows`
+      : `Water level changing ${c.rate.toFixed(2)} ft/h during your hours`
         + (c.refRate ? `, ${Math.round(Math.min(1,c.rate/c.refRate)*100)}% of this station's usual peak.` : ".")
         + ` No NOAA current station within ${CURRENT_MAX_MI} mi, so this is estimated from the water level.`;
   if(c.windMove > c.tideMove) cur += ` A ${mph} mph wind moves more water here than the tide today, so that is what is scored.`;
@@ -1728,8 +1799,7 @@ function renderLedger(){
               ${flags}
             </div>
             <div class="rowsignals dirsignals">
-              ${dirChip("Dawn", m.why.flow.directions.dawn, m.why.flow.role.want)}
-              ${dirChip("Dusk", m.why.flow.directions.dusk, m.why.flow.role.want)}
+              ${baitLine(m)}
             </div>
           </div>
           ${weekStripSvg(weekScores, state.dayIndex)}
@@ -1769,7 +1839,7 @@ function renderDetail(spot, m){
       ${m.currentDay ? `<div class="panel wide">
         <div class="panelhead">Current</div>
         <div class="panelbody">
-          <div class="panelmeta">NOAA prediction · ${esc(m.why.current.source.name)} · ${m.why.current.source.distance.toFixed(1)} mi away · knots · shaded: dawn and dusk windows</div>
+          <div class="panelmeta">NOAA prediction · ${esc(m.why.current.source.name)} · ${m.why.current.source.distance.toFixed(1)} mi away · knots · shaded: your fishing hours</div>
           ${currentChartSvg(m, narrow?360:600, narrow?170:150)}
         </div>
       </div>` : ""}
@@ -1940,6 +2010,15 @@ document.getElementById("ledger").addEventListener("click", e=>{
   }
 });
 
+// Changing the hours re-scores every spot from the data already loaded.
+function recomputeModels(){
+  SPOTS.forEach(spot=>{
+    const sd = state.spotData[spot.id];
+    if(!sd || !sd.raw) return;
+    DAYS.forEach(ds=>{ sd.days[ds] = computeDayModel(spot, ds, sd.raw); });
+  });
+}
+document.querySelectorAll('.chip[data-filter="hours"]').forEach(c=>c.setAttribute("aria-pressed", String(c.dataset.value===state.hours)));
 document.querySelectorAll(".chip").forEach(chip=>{
   chip.addEventListener("click",()=>{
     const group = chip.dataset.filter;
@@ -1951,6 +2030,11 @@ document.querySelectorAll(".chip").forEach(chip=>{
       chip.setAttribute("aria-pressed","true");
       if(group==="region") state.regionFilter = chip.dataset.value;
       if(group==="type") state.typeFilter = chip.dataset.value;
+      if(group==="hours"){
+        state.hours = chip.dataset.value;
+        try{ localStorage.setItem(HOURS_KEY, state.hours); }catch(e){ /* per-viewer nicety only */ }
+        recomputeModels();
+      }
     }
     renderAll();
   });
