@@ -175,6 +175,26 @@
   }
   .status.err{color:var(--rust);}
 
+  /* Map. Group colours are their own set so they never read as a score colour. */
+  :root{--g-upper:#2F6FD6;--g-middle:#8250C4;--g-lower:#C2417F;--g-pi:#D08A0E;--me:#1A73E8;}
+  .mappanel{border:1px solid var(--line);border-radius:4px;background:var(--surface);margin-bottom:18px;overflow:hidden;}
+  .maptools{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--line);}
+  .mapkey{display:flex;flex-wrap:wrap;gap:4px 12px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:var(--ink-soft);}
+  .mapkey i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1.5px solid #fff;box-shadow:0 0 0 1px var(--line);}
+  .mapbtns{display:flex;gap:6px;flex-wrap:wrap;}
+  .mapbtn{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;cursor:pointer;
+    background:var(--chip-bg);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:5px 12px;}
+  .mapbtn[aria-pressed="true"]{background:var(--me);border-color:var(--me);color:#fff;}
+  #map{height:min(60vh,440px);min-height:260px;background:var(--paper-2);}
+  .mapstatus{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;color:var(--slate);padding:7px 10px;border-top:1px solid var(--line);min-height:1.6em;}
+  .mapstatus.err{color:var(--rust);}
+  .mappop{font-family:'Inter',system-ui,sans-serif;font-size:13px;line-height:1.4;min-width:170px;}
+  .mappop b{display:block;font-size:13.5px;margin-bottom:2px;}
+  .mappop .mpmeta{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#4a5a5e;}
+  .mappop .mpscore{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .mappop button{margin-top:6px;font:600 12px 'Inter',system-ui,sans-serif;background:#1B6E8C;color:#fff;border:none;border-radius:12px;padding:4px 10px;cursor:pointer;}
+  .medot{width:16px;height:16px;border-radius:50%;background:var(--me);border:3px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 0 0 6px rgba(26,115,232,.18);}
+
   /* Top pick */
   .toppick{
     display:flex;align-items:center;gap:16px;flex-wrap:wrap;
@@ -397,7 +417,7 @@ try{ const t = localStorage.getItem("coastal-log:theme"); if(t==="light"||t==="d
   </header>
   <div class="meta-line">
     <span id="updatedLine">Loading live data…</span>
-    <span class="meta-actions"><a class="linkbtn" id="catchLogLink" href="#" target="_blank" rel="noopener">Catch log ↗</a><button type="button" class="themebtn" id="themeToggle"></button><button type="button" class="linkbtn" id="howScoredLink">How this is scored →</button></span>
+    <span class="meta-actions"><a class="linkbtn" id="catchLogLink" href="#" target="_blank" rel="noopener">Catch log ↗</a><button type="button" class="themebtn" id="mapToggle" aria-pressed="false" aria-controls="mapPanel">Show map</button><button type="button" class="themebtn" id="themeToggle"></button><button type="button" class="linkbtn" id="howScoredLink">How this is scored →</button></span>
   </div>
 
   <svg class="swatchbar" viewBox="0 0 900 10" preserveAspectRatio="none" aria-hidden="true">
@@ -461,6 +481,23 @@ try{ const t = localStorage.getItem("coastal-log:theme"); if(t==="light"||t==="d
       <button type="button" class="chip" id="favChip" data-filter="fav" data-value="on" aria-pressed="false">★ Saved only</button>
     </div>
   </div>
+
+  <section class="mappanel" id="mapPanel" aria-label="Map of spots" hidden>
+    <div class="maptools">
+      <div class="mapkey">
+        <span><i style="background:var(--g-upper)"></i>Upper</span>
+        <span><i style="background:var(--g-middle)"></i>Middle</span>
+        <span><i style="background:var(--g-lower)"></i>Lower</span>
+        <span><i style="background:var(--g-pi)"></i>Port Isabel</span>
+      </div>
+      <div class="mapbtns">
+        <button type="button" class="mapbtn" id="trackBtn" aria-pressed="false">Track my location</button>
+        <button type="button" class="mapbtn" id="fitBtn">Show all spots</button>
+      </div>
+    </div>
+    <div id="map"></div>
+    <div class="mapstatus" id="mapStatus" role="status">The map shows the spots that match the Region, Type and Saved filters above.</div>
+  </section>
 
   <div class="status" id="statusLine" role="status">Fetching tide stations, forecasts, and marine data for all spots…</div>
 
@@ -2078,7 +2115,174 @@ function renderDetail(spot, m){
     </div>`;
 }
 
-function renderAll(){ renderDayTabs(); renderTopPick(); renderLedger(); }
+function renderAll(){ renderDayTabs(); renderTopPick(); renderLedger(); renderMap(); }
+
+/* ============================== MAP ============================== */
+// Leaflet loads only when the map is first opened, so the list still works offline or
+// from a double-clicked file. The phone's position stays in this page: it is never sent anywhere.
+const MAP_KEY = "coastal-log:map-open";
+const GROUP_COLORS = {"Upper":"#2F6FD6", "Middle":"#8250C4", "Lower":"#C2417F", "Port Isabel":"#D08A0E"};
+const spotGroup = spot => spot.area || spot.region;
+const map = {L:null, m:null, layer:null, markers:new Map(), shownKey:"", watchId:null, me:null, acc:null, follow:false, lastFix:null};
+const mapStatusEl = document.getElementById("mapStatus");
+function setMapStatus(text, isErr){ mapStatusEl.textContent = text; mapStatusEl.className = "mapstatus" + (isErr?" err":""); }
+
+let leafletP = null;
+function loadLeaflet(){
+  if(leafletP) return leafletP;
+  leafletP = new Promise((resolve, reject)=>{
+    const css = document.createElement("link");
+    css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    css.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="; css.crossOrigin = "";
+    document.head.appendChild(css);
+    const js = document.createElement("script");
+    js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    js.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="; js.crossOrigin = "";
+    js.onload = ()=>resolve(window.L);
+    js.onerror = ()=>{ leafletP = null; reject(new Error("could not load the map library")); };
+    document.head.appendChild(js);
+  });
+  return leafletP;
+}
+
+async function initMap(){
+  if(map.m) return;
+  const L = map.L = await loadLeaflet();
+  map.m = L.map("map", {zoomControl:true, attributionControl:true}).setView([27.6,-96.4], 7);
+  const streets = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'});
+  const satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+    maxZoom:19, attribution:"Imagery &copy; Esri, Maxar, Earthstar Geographics"});
+  streets.addTo(map.m);
+  L.control.layers({"Streets":streets, "Satellite":satellite}, null, {position:"topright"}).addTo(map.m);
+  map.layer = L.layerGroup().addTo(map.m);
+  // Dragging the map means the user wants to look elsewhere: stop following them.
+  map.m.on("dragstart", ()=>{ map.follow = false; });
+  map.m.on("popupopen", e=>{
+    const btn = e.popup.getElement().querySelector("[data-open-spot]");
+    if(btn) btn.addEventListener("click", ()=>openSpotFromMap(btn.dataset.openSpot));
+  });
+  renderMap();
+}
+
+function spotPopup(spot){
+  const m = modelFor(spot.id, DAYS[state.dayIndex]);
+  const day = state.dayIndex===0 ? "today" : fmtShortDay(DAYS[state.dayIndex]).split(",")[0];
+  const score = m ? `<span class="mpscore" style="color:${scoreColor(m.total)}">${m.total}</span> ${esc(day)}`
+                  : (state.spotData[spot.id] && state.spotData[spot.id].error ? "No score — data unavailable" : "Loading score…");
+  let dist = "";
+  if(map.lastFix) dist = ` · ${haversineMiles(map.lastFix.lat, map.lastFix.lon, spot.lat, spot.lon).toFixed(1)} mi from you`;
+  return `<div class="mappop"><b>${esc(spot.name)}</b>
+    <div class="mpmeta">${esc(spotGroup(spot))} · ${esc(spot.types.join("/"))}${esc(dist)}</div>
+    <div>${score}</div>
+    <div class="mpmeta">${esc(gpsDecimal(spot))}</div>
+    <button type="button" data-open-spot="${esc(spot.id)}">Show details</button></div>`;
+}
+
+function renderMap(){
+  if(!map.m) return;
+  const L = map.L, spots = visibleSpots();
+  map.layer.clearLayers();
+  map.markers.clear();
+  spots.forEach(spot=>{
+    const mk = L.circleMarker([spot.lat, spot.lon], {
+      radius: state.favorites.has(spot.id) ? 9 : 7, weight:2, color:"#fff",
+      fillColor: GROUP_COLORS[spotGroup(spot)] || "#666", fillOpacity:.95
+    }).bindTooltip(spot.name, {direction:"top", offset:[0,-6]})
+      .bindPopup(()=>spotPopup(spot));
+    mk.addTo(map.layer);
+    map.markers.set(spot.id, mk);
+  });
+  // Refit only when the set of spots changes (a filter), not on every day switch or score load.
+  const key = spots.map(s=>s.id).join(",");
+  if(key!==map.shownKey){ map.shownKey = key; if(!map.follow) fitSpots(); }
+}
+function fitSpots(){
+  const spots = visibleSpots();
+  if(!map.m || !spots.length) return;
+  map.m.fitBounds(map.L.latLngBounds(spots.map(s=>[s.lat, s.lon])), {padding:[24,24], maxZoom:13});
+}
+
+function openSpotFromMap(id){
+  state.expanded = id;
+  renderLedger();
+  const row = document.querySelector(`.rowtop[data-spot="${id}"]`);
+  if(row){ row.scrollIntoView({behavior:"smooth", block:"start"}); row.focus({preventScroll:true}); }
+}
+
+function nearestVisible(lat, lon){
+  let best=null, bestD=Infinity;
+  visibleSpots().forEach(s=>{ const d = haversineMiles(lat, lon, s.lat, s.lon); if(d<bestD){ bestD=d; best=s; } });
+  return best ? {spot:best, miles:bestD} : null;
+}
+function onFix(pos){
+  const L = map.L, {latitude:lat, longitude:lon, accuracy, speed, heading} = pos.coords;
+  const first = !map.lastFix;
+  map.lastFix = {lat, lon};
+  if(!map.me){
+    map.acc = L.circle([lat,lon], {radius:accuracy, color:"#1A73E8", weight:1, fillColor:"#1A73E8", fillOpacity:.12, interactive:false}).addTo(map.m);
+    map.me = L.marker([lat,lon], {icon:L.divIcon({className:"", html:'<div class="medot"></div>', iconSize:[16,16], iconAnchor:[8,8]}),
+      keyboard:false, zIndexOffset:1000, title:"You are here"}).addTo(map.m);
+  }else{
+    map.me.setLatLng([lat,lon]);
+    map.acc.setLatLng([lat,lon]).setRadius(accuracy);
+  }
+  if(first) map.m.setView([lat,lon], Math.max(map.m.getZoom(), 12));
+  else if(map.follow) map.m.panTo([lat,lon]);
+  const near = nearestVisible(lat, lon);
+  const parts = [`You: ${lat.toFixed(5)}, ${lon.toFixed(5)} (±${Math.round(accuracy*3.28084)} ft)`];
+  if(speed!=null && speed>0.5) parts.push(`${(speed*2.23694).toFixed(0)} mph${heading!=null&&!isNaN(heading)?" "+windCompassLabel(heading):""}`);
+  if(near) parts.push(`nearest spot: ${near.spot.name.split(" / ")[0]}, ${near.miles.toFixed(1)} mi`);
+  parts.push("updated " + new Date(pos.timestamp).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",second:"2-digit"}));
+  setMapStatus(parts.join(" · "));
+}
+function onFixError(err){
+  const msg = err.code===1 ? "Location permission was denied. Allow location for this site in your browser settings, then tap Track again."
+            : err.code===3 ? "Still waiting for a GPS fix…"
+            : "Your location is unavailable right now (" + err.message + ").";
+  setMapStatus(msg, err.code!==3);
+  if(err.code===1) stopTracking(true);
+}
+const trackBtn = document.getElementById("trackBtn");
+function startTracking(){
+  if(!("geolocation" in navigator)){ setMapStatus("This browser has no location support.", true); return; }
+  if(!window.isSecureContext){ setMapStatus("Location needs the page to be opened over https (the GitHub Pages link), not http.", true); return; }
+  map.follow = true;
+  setMapStatus("Finding your location…");
+  map.watchId = navigator.geolocation.watchPosition(onFix, onFixError, {enableHighAccuracy:true, maximumAge:5000, timeout:30000});
+  trackBtn.setAttribute("aria-pressed","true");
+  trackBtn.textContent = "Follow me";
+}
+function stopTracking(keepStatus){
+  if(map.watchId!=null) navigator.geolocation.clearWatch(map.watchId);
+  map.watchId = null; map.follow = false; map.lastFix = null;
+  if(map.me){ map.me.remove(); map.acc.remove(); map.me = map.acc = null; }
+  trackBtn.setAttribute("aria-pressed","false");
+  trackBtn.textContent = "Track my location";
+  if(!keepStatus) setMapStatus("Stopped tracking your location.");
+}
+// While tracking: tap once to re-centre and follow again after panning away, again to stop.
+trackBtn.addEventListener("click", ()=>{
+  if(map.watchId==null){ startTracking(); return; }
+  if(!map.follow && map.lastFix){ map.follow = true; map.m.panTo([map.lastFix.lat, map.lastFix.lon]); return; }
+  stopTracking();
+});
+document.getElementById("fitBtn").addEventListener("click", ()=>{ map.follow = false; fitSpots(); });
+
+const mapPanel = document.getElementById("mapPanel"), mapToggle = document.getElementById("mapToggle");
+async function setMapOpen(open){
+  mapPanel.hidden = !open;
+  mapToggle.setAttribute("aria-pressed", String(open));
+  mapToggle.textContent = open ? "Hide map" : "Show map";
+  try{ localStorage.setItem(MAP_KEY, open ? "1" : "0"); }catch(e){ /* per-viewer nicety only */ }
+  if(!open){ if(map.watchId!=null) stopTracking(true); return; }
+  try{
+    await initMap();
+    map.m.invalidateSize();
+  }catch(e){ setMapStatus("The map could not load — check your connection. (" + e.message + ")", true); }
+}
+mapToggle.addEventListener("click", ()=>setMapOpen(mapPanel.hidden));
+try{ if(localStorage.getItem(MAP_KEY)==="1") setMapOpen(true); }catch(e){ /* per-viewer nicety only */ }
 
 /* ============================== EVENTS ============================== */
 document.getElementById("dayTabs").addEventListener("click", e=>{
@@ -2135,6 +2339,7 @@ document.getElementById("ledger").addEventListener("click", e=>{
     if(state.favorites.has(id)) state.favorites.delete(id); else state.favorites.add(id);
     saveFavs(state.favorites);
     renderLedger();
+    renderMap();
     const again = document.querySelector(`.star[data-star="${id}"]`);
     if(again) again.focus();
     return;

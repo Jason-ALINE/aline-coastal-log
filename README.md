@@ -19,6 +19,17 @@ The detail view's **Location** panel repeats it alongside decimal degrees, each 
 a Copy button, plus an Open in Google Maps link. Atlas spots store full-precision
 coordinates, so the displayed minutes match the printed page exactly.
 
+**Show map** opens a map of the spots that pass the Region, Type and Saved filters,
+coloured by group (Upper, Middle, Lower, Port Isabel; Port Isabel spots are region
+Lower, so the Lower filter shows both colours). Leaflet 1.9.4 and the map tiles
+(OpenStreetMap streets, Esri satellite) load from the network only when the map is
+first opened, so the list still works offline. **Track my location** uses the
+browser's `watchPosition`: a blue dot with an accuracy ring, speed and heading when
+moving, and the nearest visible spot. It follows you until you drag the map; tap the
+button again to re-centre, and once more to stop. The position never leaves the
+page: it is not stored or sent anywhere. Location needs https (GitHub Pages) or
+localhost; browsers refuse it over plain http.
+
 One self-contained HTML file. No build step, no dependencies, no server — open
 `index.html` in a browser and it fetches everything it needs.
 
